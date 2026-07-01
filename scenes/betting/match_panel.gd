@@ -26,6 +26,7 @@ signal advance_tick_requested()
 @onready var _stats_panel: StatsPanel = $VBox/StatsPanel
 @onready var _commentary_panel: CommentaryPanel = $VBox/CommentaryPanel
 @onready var _markets_container: Container = $VBox/MarketsScroll/MarketsContainer
+@onready var _tick_status_label: Label = $VBox/TickStatusLabel
 @onready var _advance_tick_button: Button = $VBox/AdvanceTickButton
 
 var match_id: StringName = &""
@@ -81,6 +82,7 @@ func on_tick_opened(context: BetTickContext, match_state: MatchTickState, home_t
 
 	_has_bet_this_tick = false
 	_advance_tick_button.disabled = true
+	_tick_status_label.text = "⬇ Apuesta algo para continuar"
 
 
 ## Aplica la restricción de mercados/stake forzoso del Momento Crazy vigente a todos los MarketWidget.
@@ -150,6 +152,7 @@ func _on_market_widget_bet_confirmed(market_id: StringName, option_key: StringNa
 
 	_has_bet_this_tick = true
 	_advance_tick_button.disabled = false
+	_tick_status_label.text = "✓ Apuesta registrada — puedes continuar"
 	tick_bet_requirement_satisfied.emit(match_id)
 
 

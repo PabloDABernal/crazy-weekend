@@ -27,8 +27,37 @@ func refresh_pending_bets(pending: Array[PendingBet]) -> void:
 
 	for pending_bet in pending:
 		var label := Label.new()
-		label.text = "%s: $%d en %s" % [String(pending_bet.match_id), pending_bet.stake, String(pending_bet.market_offer.market_id)]
+		label.text = "$%d en %s — %s" % [
+			pending_bet.stake,
+			_format_market_name(pending_bet.market_offer.market_id),
+			_resolve_match_label(pending_bet.match_id),
+		]
 		_pending_bets_list.add_child(label)
+
+
+func _resolve_match_label(match_id: StringName) -> String:
+	for matchday in LeagueState.calendar:
+		for fixture in matchday.matches:
+			if fixture.match_id == match_id:
+				var home: TeamDef = LeagueState.get_team(fixture.home_team_id)
+				var away: TeamDef = LeagueState.get_team(fixture.away_team_id)
+				var h: String = home.display_name if home != null else String(fixture.home_team_id)
+				var a: String = away.display_name if away != null else String(fixture.away_team_id)
+				return "%s vs %s" % [h, a]
+	return String(match_id)
+
+
+func _format_market_name(market_id: StringName) -> String:
+	match String(market_id):
+		"1x2": return "resultado"
+		"btts": return "ambos marcan"
+		"first_scorer": return "primer goleador"
+		"goals_ou_1_5": return "goles +/-1.5"
+		"goals_ou_2_5": return "goles +/-2.5"
+		"goals_ou_3_5": return "goles +/-3.5"
+		"cards_ou": return "tarjetas"
+		"fouls_ou": return "faltas"
+	return String(market_id)
 
 
 func _on_money_changed(new_amount: int, _delta: int, _reason: String) -> void:

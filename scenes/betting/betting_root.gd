@@ -7,7 +7,7 @@ class_name BettingRoot extends Control
 signal run_closed(categories_unlocked_this_run: Array)
 
 const MATCH_PANEL_SCENE: PackedScene = preload("res://scenes/betting/match_panel.tscn")
-const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 15
+const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 
 @onready var _match_simulation_service: MatchSimulationService = $MatchSimulationService
 @onready var _pending_bets_tracker: PendingBetsTracker = $PendingBetsTracker
@@ -60,7 +60,7 @@ func _start_landing_countdown() -> void:
 	_update_hour_display()
 
 	_landing_timer = Timer.new()
-	_landing_timer.wait_time = 1.0
+	_landing_timer.wait_time = 0.5
 	_landing_timer.one_shot = false
 	add_child(_landing_timer)
 	_landing_timer.timeout.connect(_on_landing_timer_tick)
@@ -80,7 +80,7 @@ func _on_landing_timer_tick() -> void:
 
 func _update_hour_display() -> void:
 	if not _kickoff_started and _display_clock_minutes_before_kickoff > 0:
-		_top_bar.set_hour_text("Kickoff en %d min" % _display_clock_minutes_before_kickoff)
+		_top_bar.set_hour_text("📺 Arrancando jornada...")
 	else:
 		_top_bar.set_hour_text(_format_day_label(RunState.current_day))
 
