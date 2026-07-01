@@ -1,0 +1,35 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/collection/combined_milestone_slot.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/shared/category_slot.tscn" id="2"]
+
+[node name="FamilyBCombinedSlot" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1")
+
+[node name="CombinedHeaderLabel" type="Label" parent="."]
+layout_mode = 0
+offset_right = 400.0
+offset_bottom = 24.0
+text = "Hito Económico"
+
+[node name="SubSlot_10k" parent="." instance=ExtResource("2")]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 130.0
+offset_bottom = 128.0
+
+[node name="SubSlot_100k" parent="." instance=ExtResource("2")]
+layout_mode = 0
+offset_left = 135.0
+offset_top = 28.0
+offset_right = 265.0
+offset_bottom = 128.0
+
+[node name="SubSlot_1m" parent="." instance=ExtResource("2")]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 28.0
+offset_right = 400.0
+offset_bottom = 128.0
