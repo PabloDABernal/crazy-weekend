@@ -17,3 +17,7 @@ signal run_ended(result: RunResult)                       # victoria o derrota, 
 # --- Épica D — Simulación de liga y partidos ---
 signal matchday_finished(matchday_index: int)   # emitido por MatchSimulationService al terminar los 6 ticks de todos los partidos del día
 signal market_bet_resolved(result: MarketBetResult)   # emitido por la UI de apuestas (Épica E) usando MarketBetResultBuilder (Épica D)
+
+# --- Épica A — Tipos de victoria ---
+signal victory_category_unlocked(category_id: StringName, run_number: int)  # emitido por VictoryTracker, consumido por Épica C (Expediente)
+signal final_ending_triggered(run_number: int)                              # emitido por VictoryTracker al completarse VictoryTracker.active_requirement_set
