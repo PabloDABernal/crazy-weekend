@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="VictoryRequirementSet" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory/victory_requirement_set.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/victory_base.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/victory_medias.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/victory_goles.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/victory_tarjetas.tres" id="5"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/victory_faltas.tres" id="6"]
+[ext_resource type="Resource" path="res://resources/definitions/victory/economic_milestone_slot.tres" id="7"]
+
+[resource]
+script = ExtResource("1")
+set_id = &"mvp_6of8"
+required_categories = Array[VictoryCategoryDef]([ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7")])

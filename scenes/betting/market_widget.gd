@@ -1,0 +1,178 @@
+class_name MarketWidget extends Control
+## Componente único de mercado, parametrizado por MarketDef.kind (E.4). Reutilizado para los 8
+## MarketDef.kind del catálogo MVP -- no hay una escena por mercado.
+## Ver .ai-studio/specs/epic-e-pantalla-de-apuestas.md sección 3.3.
+
+const OPTION_LABELS_PATH: String = "res://resources/definitions/market/market_option_labels.tres"
+
+signal bet_confirmed(market_id: StringName, option_key: StringName, stake: int)
+
+@onready var _market_title_label: Label = $MarketTitleLabel
+@onready var _options_container: Container = $OptionsContainer
+@onready var _stake_input: SpinBox = $StakeInput
+@onready var _confirm_bet_button: Button = $ConfirmBetButton
+@onready var _disabled_overlay: Control = $DisabledOverlay
+
+var market_id: StringName = &""
+var _offers_by_option: Dictionary = {}   # option_key (StringName) -> MarketOffer
+var _option_labels: MarketOptionLabels = null
+var _selected_option_key: StringName = &""
+var _option_buttons: Dictionary = {}     # option_key (StringName) -> Button
+
+var _minimum_stake: int = 0
+var _forced_stake_amount: int = -1       # -1 = sin stake forzoso vigente (no Crazy Bet)
+var _is_restricted: bool = false
+
+
+func _ready() -> void:
+	_confirm_bet_button.pressed.connect(_on_confirm_pressed)
+	if ResourceLoader.exists(OPTION_LABELS_PATH):
+		_option_labels = ResourceLoader.load(OPTION_LABELS_PATH)
+	_disabled_overlay.visible = false
+
+
+## Puebla el widget con las ofertas vigentes de este mercado para el tick actual.
+func refresh(offers: Array[MarketOffer]) -> void:
+	if offers.is_empty():
+		return
+
+	market_id = offers[0].market_id
+	_offers_by_option.clear()
+	for offer in offers:
+		_offers_by_option[offer.option_key] = offer
+
+	_market_title_label.text = _resolve_market_title(offers[0])
+	_rebuild_option_buttons(offers)
+	_selected_option_key = &""
+	_update_confirm_button_enabled()
+
+
+func apply_forced_stake(amount: int) -> void:
+	_forced_stake_amount = amount
+	_stake_input.value = float(amount)
+	_stake_input.editable = false
+	_update_confirm_button_enabled()
+
+
+func set_minimum_stake(amount: int) -> void:
+	_minimum_stake = amount
+	if _forced_stake_amount < 0:
+		_stake_input.editable = true
+		_stake_input.min_value = float(amount)
+		if _stake_input.value < float(amount):
+			_stake_input.value = float(amount)
+	_update_confirm_button_enabled()
+
+
+## Limpia cualquier stake forzoso vigente (Momento Crazy terminado) y restaura edición normal.
+func clear_forced_stake() -> void:
+	_forced_stake_amount = -1
+	_stake_input.editable = true
+	_stake_input.min_value = float(_minimum_stake)
+	if _stake_input.value < float(_minimum_stake):
+		_stake_input.value = float(_minimum_stake)
+	_update_confirm_button_enabled()
+
+
+func set_restricted(is_restricted_value: bool) -> void:
+	_is_restricted = is_restricted_value
+	_disabled_overlay.visible = is_restricted_value
+	_update_confirm_button_enabled()
+
+
+## Devuelve el MarketOffer vigente para un option_key ya poblado por el último refresh(). Usado por
+## MatchPanel para recuperar el MarketOffer completo al recibir bet_confirmed (que solo lleva
+## option_key, no el MarketOffer completo).
+func get_offer_for_option(option_key: StringName) -> MarketOffer:
+	return _offers_by_option.get(option_key, null)
+
+
+func _rebuild_option_buttons(offers: Array[MarketOffer]) -> void:
+	for child in _options_container.get_children():
+		child.queue_free()
+	_option_buttons.clear()
+
+	for offer in offers:
+		var button := Button.new()
+		button.text = _resolve_option_label(offer)
+		button.toggle_mode = true
+		button.pressed.connect(_on_option_button_pressed.bind(offer.option_key))
+		_options_container.add_child(button)
+		_option_buttons[offer.option_key] = button
+
+		var odds_range_label := Label.new()
+		odds_range_label.text = "%d%%-%d%%" % [
+			int(round(offer.displayed_probability_min * 100.0)),
+			int(round(offer.displayed_probability_max * 100.0)),
+		]
+		button.add_child(odds_range_label)
+
+
+func _resolve_market_title(offer: MarketOffer) -> String:
+	match String(offer.market_id):
+		"1x2":
+			return "Resultado final"
+		"btts":
+			return "Ambos anotan"
+		"first_scorer":
+			return "Primer goleador"
+		"cards_ou":
+			return "Tarjetas +/- %s" % _format_threshold(offer.threshold_display)
+		"fouls_ou":
+			return "Faltas +/- %s" % _format_threshold(offer.threshold_display)
+		"goals_ou_1_5", "goals_ou_2_5", "goals_ou_3_5":
+			return "Goles +/- %s" % _format_threshold(offer.threshold_display)
+		_:
+			return String(offer.market_id)
+
+
+func _resolve_option_label(offer: MarketOffer) -> String:
+	if offer.market_id == &"first_scorer":
+		var player: PlayerDef = _find_player(offer.option_key)
+		return player.display_name if player != null else String(offer.option_key)
+
+	var base_label: String = _option_labels.get_label(offer.option_key) if _option_labels != null else String(offer.option_key)
+	if offer.threshold_display >= 0.0 and (String(offer.option_key) == "over" or String(offer.option_key) == "under"):
+		return "%s %s" % [base_label, _format_threshold(offer.threshold_display)]
+	return base_label
+
+
+func _find_player(player_id: StringName) -> PlayerDef:
+	for team in LeagueState.teams:
+		for player in team.squad:
+			if player.player_id == player_id:
+				return player
+	return null
+
+
+func _format_threshold(threshold: float) -> String:
+	return "%.1f" % threshold
+
+
+func _on_option_button_pressed(option_key: StringName) -> void:
+	_selected_option_key = option_key
+	for key in _option_buttons.keys():
+		var button: Button = _option_buttons[key]
+		button.button_pressed = key == option_key
+	_update_confirm_button_enabled()
+
+
+func _update_confirm_button_enabled() -> void:
+	var has_selection: bool = _selected_option_key != &""
+	_confirm_bet_button.disabled = _is_restricted or not has_selection
+
+
+func _on_confirm_pressed() -> void:
+	if _is_restricted or _selected_option_key == &"":
+		return
+
+	var stake: int = int(_stake_input.value)
+	var required: int = _forced_stake_amount if _forced_stake_amount >= 0 else _minimum_stake
+	if stake < required:
+		return
+	# Defensa de UI (el punto de validación real y bloqueante es MatchPanel, que conoce RunState) --
+	# nunca se emite una apuesta con stake mayor al dinero disponible.
+	if stake > RunState.get_money():
+		return
+
+	bet_confirmed.emit(market_id, _selected_option_key, stake)

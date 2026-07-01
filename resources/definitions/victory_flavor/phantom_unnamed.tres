@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="VictoryCategoryFlavor" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory_flavor/victory_category_flavor.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+category_id = &"phantom_unnamed"
+display_name = "??????"
+sealed_hint_text = "Alguien más está mirando este expediente. Pista pendiente de redacción."
+unlocked_flavor_text_template = "Este archivo nunca se termina de abrir."
+unlocked_criteria_text = ""

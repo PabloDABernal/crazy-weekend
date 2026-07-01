@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/betting/crazy_moment_overlay.gd" id="1"]
+
+[node name="CrazyMomentOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="AlertTintOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.8, 0.1, 0.1, 0.25)
+
+[node name="CrazySealLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 400.0
+offset_top = 20.0
+offset_right = 700.0
+offset_bottom = 70.0
+text = "CRAZY"
+
+[node name="ForcedStakeLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 400.0
+offset_top = 74.0
+offset_right = 700.0
+offset_bottom = 100.0
+text = ""

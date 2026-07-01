@@ -35,3 +35,11 @@ Qué: se borró `.ai-studio/agents/` (duplicaba contenido de `.claude/agents/`).
 Por qué: evitar desincronización entre dos copias del mismo rol al editar.
 
 Cuándo: 2026-06-30.
+
+## 2026-07-01 — Fase inter-run mínima sí entra en el MVP (Historia E.6)
+
+Qué: el MVP jugable de punta a punta no encadena runs sueltas en bucle sin ninguna transición entre ellas. Se incorpora una fase inter-run mínima (Historia E.6 en `backlog.md`, Épica E): pantalla de resumen de lunes (real, no mockeada) más una única decisión conversacional simplificada que otorga dinero extra directo antes de la siguiente run. La versión completa (3 decisiones/día de martes/miércoles/jueves, draft de amuletos, tienda, investigación, los otros 3 tipos de beneficio) sigue diferida a post-MVP.
+
+Por qué: el Coordinator señaló en un reporte previo que el MVP, tal como estaba planteado, mockeaba la fase inter-run con dinero base fijo y una pantalla mínima de "continuar" (nota original en Historia E.5). Consultado explícitamente sobre si eso era aceptable para esta iteración, el Director Creativo pidió un mínimo de fase inter-run real ya en esta iteración, no la versión completa.
+
+Cuándo: 2026-07-01.

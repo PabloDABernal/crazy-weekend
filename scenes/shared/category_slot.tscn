@@ -1,0 +1,149 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/shared/category_slot.gd" id="1"]
+
+[sub_resource type="Animation" id="Animation_unlock"]
+resource_name = "unlock"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("SealedState:modulate:a")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.6),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [1.0, 0.0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("UnlockedState:modulate:a")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.6),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_slot"]
+_data = {
+"unlock": SubResource("Animation_unlock")
+}
+
+[node name="CategorySlot" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1")
+
+[node name="SealedState" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="RedactedNameLabel" type="Label" parent="SealedState"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 24.0
+text = ""
+
+[node name="RedactionBarsTextureRect" type="TextureRect" parent="SealedState"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 200.0
+offset_bottom = 48.0
+
+[node name="HintLabel" type="Label" parent="SealedState"]
+layout_mode = 0
+offset_top = 52.0
+offset_right = 200.0
+offset_bottom = 96.0
+autowrap_mode = 3
+text = ""
+
+[node name="UnlockedState" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="DisplayNameLabel" type="Label" parent="UnlockedState"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 24.0
+text = ""
+
+[node name="CriteriaLabel" type="Label" parent="UnlockedState"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 200.0
+offset_bottom = 52.0
+autowrap_mode = 3
+text = ""
+
+[node name="AchievementDateLabel" type="Label" parent="UnlockedState"]
+layout_mode = 0
+offset_top = 56.0
+offset_right = 200.0
+offset_bottom = 76.0
+text = ""
+
+[node name="FlavorTextLabel" type="Label" parent="UnlockedState"]
+layout_mode = 0
+offset_top = 80.0
+offset_right = 200.0
+offset_bottom = 128.0
+autowrap_mode = 3
+text = ""
+
+[node name="ReservedState" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ReservedLabel" type="Label" parent="ReservedState"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 96.0
+autowrap_mode = 3
+text = "Expediente incompleto. Este archivo no ha sido abierto."
+
+[node name="PhantomOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="PartiallyLiftedBarsTextureRect" type="TextureRect" parent="PhantomOverlay"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 200.0
+offset_bottom = 48.0
+
+[node name="ManuscriptOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="HandwrittenAnnotationLabel" type="Label" parent="ManuscriptOverlay"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 40.0
+autowrap_mode = 3
+text = ""
+
+[node name="UnlockAnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("AnimationLibrary_slot")
+}

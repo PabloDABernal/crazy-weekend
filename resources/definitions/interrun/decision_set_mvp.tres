@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="InterrunDecisionSet" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/interrun/interrun_decision_set.gd" id="1"]
+[ext_resource type="Script" path="res://resources/definitions/interrun/interrun_decision_option.gd" id="2"]
+
+[sub_resource type="Resource" id="Option_conservadora"]
+script = ExtResource("2")
+option_id = &"decision_conservadora"
+prompt_text = "Guardar algo para el lunes"
+flavor_text = "La opción segura del lunes."
+money_bonus_amount = 30
+
+[sub_resource type="Resource" id="Option_intermedia"]
+script = ExtResource("2")
+option_id = &"decision_intermedia"
+prompt_text = "Un empujón razonable"
+flavor_text = "Ni mucho ni poco."
+money_bonus_amount = 60
+
+[sub_resource type="Resource" id="Option_arriesgada"]
+script = ExtResource("2")
+option_id = &"decision_arriesgada"
+prompt_text = "Ir a por todo otra vez"
+flavor_text = "El lunes también se puede vivir al límite."
+money_bonus_amount = 100
+
+[resource]
+script = ExtResource("1")
+options = Array[InterrunDecisionOption]([SubResource("Option_conservadora"), SubResource("Option_intermedia"), SubResource("Option_arriesgada")])

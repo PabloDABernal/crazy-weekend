@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="VictoryCategoryFlavor" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory_flavor/victory_category_flavor.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+category_id = &"victory_medias"
+display_name = "Victoria de Medias"
+sealed_hint_text = "Categoría: Victoria de Medias. Pista pendiente de redacción."
+unlocked_flavor_text_template = "Expediente actualizado. El sujeto cumplió este requisito el {fecha} (Run {run}). Se ha tomado nota."
+unlocked_criteria_text = "Criterio cumplido. Texto pendiente de redacción."

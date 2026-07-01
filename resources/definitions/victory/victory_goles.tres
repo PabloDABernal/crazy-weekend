@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="VictoryCategoryDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory/victory_category_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+category_id = &"victory_goles"
+display_name = "Victoria de Goles"
+family = 0
+criterion_type = 1
+market_id = &"goals_ou"
+required_tag = &""
+required_count = 5
+counter_scope = 1
+money_thresholds = Array[int]([])

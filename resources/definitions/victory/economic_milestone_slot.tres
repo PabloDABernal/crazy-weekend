@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="VictoryCategoryDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory/victory_category_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+category_id = &"economic_milestone_slot"
+display_name = "Hito Económico"
+family = 1
+criterion_type = 3
+market_id = &""
+required_tag = &""
+required_count = 0
+counter_scope = 0
+money_thresholds = Array[int]([10000, 100000, 1000000])

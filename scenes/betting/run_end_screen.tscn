@@ -1,0 +1,63 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/betting/run_end_screen.gd" id="1"]
+
+[node name="RunEndScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="VictoryContent" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ResultTitleLabel" type="Label" parent="VictoryContent"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 200.0
+offset_right = 700.0
+offset_bottom = 240.0
+text = "Fin de semana cerrado"
+
+[node name="FinalMoneyLabel" type="Label" parent="VictoryContent"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 244.0
+offset_right = 700.0
+offset_bottom = 280.0
+text = ""
+
+[node name="ContinueButton" type="Button" parent="VictoryContent"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 320.0
+offset_right = 460.0
+offset_bottom = 356.0
+text = "Continuar"
+
+[node name="BankruptcyContent" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ResultTitleLabel" type="Label" parent="BankruptcyContent"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 200.0
+offset_right = 700.0
+offset_bottom = 240.0
+text = "Ya es lunes"
+
+[node name="ContinueButton" type="Button" parent="BankruptcyContent"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 320.0
+offset_right = 460.0
+offset_bottom = 356.0
+text = "Continuar"

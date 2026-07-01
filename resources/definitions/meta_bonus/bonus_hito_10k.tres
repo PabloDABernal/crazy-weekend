@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MetaMoneyBonus" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/meta_bonus/meta_money_bonus.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+bonus_id = &"bonus_hito_10k"
+amount = 100
+unlock_source = "Desbloquear Victoria del Cuatro Cifras (Épica A, Familia B)"

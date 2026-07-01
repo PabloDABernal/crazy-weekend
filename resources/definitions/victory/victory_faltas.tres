@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="VictoryCategoryDef" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/victory/victory_category_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+category_id = &"victory_faltas"
+display_name = "Victoria de Faltas"
+family = 0
+criterion_type = 0
+market_id = &"fouls_ou"
+required_tag = &"dirty_match_fouls_gt_20"
+required_count = 0
+counter_scope = 0
+money_thresholds = Array[int]([])
