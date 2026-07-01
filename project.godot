@@ -1,0 +1,23 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are meant to be edited
+; using the UI and not by hand, although you can perform
+; any of these changes by manually changing this file.
+
+; It won't be regenerated if it exists.
+
+config_version=5
+
+[application]
+
+config/name="Crazy Weekend"
+config/features=PackedStringArray("4.3", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+EventBus="*res://autoloads/event_bus.gd"
+MetaProgress="*res://autoloads/meta_progress.gd"
+NarrativePhase="*res://autoloads/narrative_phase.gd"
+RunState="*res://autoloads/run_state.gd"
+EconomyRules="*res://autoloads/economy_rules.gd"
