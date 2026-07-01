@@ -77,6 +77,10 @@ func advance_tick() -> void:
 		context.tick_index_in_day = new_state.current_tick_index
 		context.available_markets = available_markets
 
+		# Orden estricto (fix de integración Épica E): bet_tick_resolved ANTES de bet_tick_opened para
+		# este mismo match_id, para que la UI de apuestas resuelva/acredite el payout del tick recién
+		# cerrado antes de que RunState (conectado a bet_tick_opened) evalúe StakeResolver.is_run_dead().
+		EventBus.bet_tick_resolved.emit(match_id, new_state.current_tick_index)
 		EventBus.bet_tick_opened.emit(context)
 
 	if is_matchday_finished():

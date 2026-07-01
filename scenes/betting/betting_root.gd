@@ -34,6 +34,7 @@ func _ready() -> void:
 	_run_end_screen.continue_pressed.connect(_on_run_end_continue_pressed)
 	_match_selector.match_focus_requested.connect(_on_match_selector_focus_requested)
 
+	EventBus.bet_tick_resolved.connect(_on_bet_tick_resolved)
 	EventBus.bet_tick_opened.connect(_on_bet_tick_opened)
 	EventBus.crazy_moment_triggered.connect(_on_crazy_moment_triggered)
 	EventBus.crazy_moment_ended.connect(_on_crazy_moment_ended)
@@ -182,12 +183,26 @@ func _on_match_selector_focus_requested(match_id: StringName) -> void:
 		_set_focused_match(match_id)
 
 
+## Conectado a EventBus.bet_tick_resolved, emitido por MatchSimulationService.advance_tick()
+## INMEDIATAMENTE ANTES de bet_tick_opened para este mismo match_id (fix de integración: separa la
+## resolución/acreditación de apuestas pendientes de la apertura del tick nuevo). Resuelve las
+## apuestas pendientes de este partido contra el MatchTickState recién cerrado -- este orden garantiza
+## que RunState (conectado a bet_tick_opened) ya vea el dinero actualizado por el payout de este tick
+## al evaluar StakeResolver.is_run_dead(), sin depender del orden de conexión de listeners sobre una
+## misma señal (ver .ai-studio/specs/_arquitectura-base.md sección 2.1).
+func _on_bet_tick_resolved(match_id: StringName, _tick_index: int) -> void:
+	var match_state: MatchTickState = _match_simulation_service.get_match_tick_state(match_id)
+	if match_state == null:
+		return
+
+	_pending_bets_tracker.resolve_bets_for_match(match_id, match_state, _current_matchday_id())
+	_top_bar.refresh_pending_bets(_pending_bets_tracker.get_pending_bets())
+
+
 ## Enruta el context al MatchPanel correspondiente a context.available_markets[0].match_id (todas las
-## entradas de un mismo BetTickContext comparten match_id). MatchSimulationService.advance_tick() ya
-## resolvió el nuevo MatchTickState de este partido de forma síncrona ANTES de emitir esta señal (ver
-## match_simulation_service.gd advance_tick()), así que get_match_tick_state() aquí ya devuelve el
-## tick recién cerrado -- este es el punto correcto para resolver apuestas pendientes de este partido
-## contra ese estado, antes de poblar el nuevo BetTickContext en el MatchPanel (sección 4.2 de la spec).
+## entradas de un mismo BetTickContext comparten match_id). Solo puebla el panel con el nuevo contexto
+## -- la resolución de apuestas pendientes de este partido ya ocurrió en _on_bet_tick_resolved, que
+## MatchSimulationService garantiza que se emite antes que esta señal para el mismo match_id.
 func _on_bet_tick_opened(context: BetTickContext) -> void:
 	if context.available_markets.is_empty():
 		return
@@ -201,11 +216,6 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 		_matches_with_tick_open_this_cycle.append(match_id)
 
 	var match_state: MatchTickState = _match_simulation_service.get_match_tick_state(match_id)
-
-	if match_state != null:
-		_pending_bets_tracker.resolve_bets_for_match(match_id, match_state, _current_matchday_id())
-		_top_bar.refresh_pending_bets(_pending_bets_tracker.get_pending_bets())
-
 	var commentary_context: TickCommentaryContext = _match_simulation_service.get_tick_commentary_context(match_id)
 	var home_team: TeamDef = LeagueState.get_team(match_state.home_team_id) if match_state != null else null
 	var away_team: TeamDef = LeagueState.get_team(match_state.away_team_id) if match_state != null else null

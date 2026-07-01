@@ -77,7 +77,15 @@ Señales relevantes para Épica B (otras épicas añadirán las suyas a este mis
 signal run_started(starting_money: int, run_number: int)
 signal money_changed(new_amount: int, delta: int, reason: String)
 signal bet_tick_opened(context: BetTickContext)          # ver 4.2 — el tick service anuncia que hay que apostar
-signal bet_tick_resolved(tick_index: int)
+# Firma extendida por Épica E (fix de integración) de bet_tick_resolved(tick_index: int) original a
+# bet_tick_resolved(match_id: StringName, tick_index: int) — la resolución es por partido, no solo por
+# índice de tick global (hay varios partidos en paralelo con tick abierto el mismo momento). Emitida
+# por MatchSimulationService.advance_tick() INMEDIATAMENTE ANTES de bet_tick_opened para el mismo
+# match_id: separa "se resolvieron/acreditaron las apuestas pendientes del tick que se cierra" de "se
+# abrió el tick nuevo", para que RunState (conectado a bet_tick_opened) evalúe
+# StakeResolver.is_run_dead() ya con el dinero actualizado por el payout de ese tick — evita una
+# condición de carrera con el orden de conexión de listeners (autoload vs. escena) sobre la misma señal.
+signal bet_tick_resolved(match_id: StringName, tick_index: int)
 signal crazy_moment_triggered(crazy_bet: CrazyBetContext) # ver 4.3
 signal crazy_moment_ended()
 signal run_ended(result: RunResult)                       # ver 3.3 — victoria o derrota, incluye motivo
