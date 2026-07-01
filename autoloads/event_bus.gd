@@ -13,3 +13,7 @@ signal bet_tick_resolved(tick_index: int)
 signal crazy_moment_triggered(crazy_bet: CrazyBetContext)
 signal crazy_moment_ended()
 signal run_ended(result: RunResult)                       # victoria o derrota, incluye motivo
+
+# --- Épica D — Simulación de liga y partidos ---
+signal matchday_finished(matchday_index: int)   # emitido por MatchSimulationService al terminar los 6 ticks de todos los partidos del día
+signal market_bet_resolved(result: MarketBetResult)   # emitido por la UI de apuestas (Épica E) usando MarketBetResultBuilder (Épica D)
