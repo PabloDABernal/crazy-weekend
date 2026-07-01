@@ -225,6 +225,14 @@ de `MetaProgress` y `RunState` (necesita leer ambos):
 6. VictoryTracker        <- nuevo, Épica A
 ```
 
+Nota de reconciliación (post-implementación): Épica D se implementó después de que esta spec fijara la
+posición 6, y agregó `LeagueRules`/`LeagueState` en las posiciones 6-7 sobre un `project.godot` que Épica A
+todavía no había tocado. Al implementarse Épica A, `VictoryTracker` se agregó al final (posición 8) en vez
+de reordenar autoloads ya commiteados. El orden vigente y real en el código es el que fija
+`.ai-studio/specs/epic-d-liga-y-partidos.md` sección 2 ("Orden de carga final"): `EventBus, MetaProgress,
+NarrativePhase, RunState, EconomyRules, LeagueRules, LeagueState, VictoryTracker`. No hay dependencia de
+carga real entre `VictoryTracker` y `LeagueRules`/`LeagueState`, así que esto no afecta el comportamiento.
+
 ### 4.1 Responsabilidad y contrato
 
 ```gdscript

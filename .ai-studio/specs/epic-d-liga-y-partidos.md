@@ -327,10 +327,16 @@ Orden de carga final (actualización completa de la tabla):
 3. NarrativePhase
 4. RunState
 5. EconomyRules
-6. VictoryTracker
-7. LeagueRules       <- nuevo, Épica D
-8. LeagueState       <- nuevo, Épica D (lee LeagueRules)
+6. LeagueRules       <- nuevo, Épica D
+7. LeagueState       <- nuevo, Épica D (lee LeagueRules)
+8. VictoryTracker    <- nuevo, Épica A
 ```
+
+Nota de reconciliación (post-implementación): Épica D se implementó antes que Épica A, y su `project.godot`
+ya registraba `LeagueRules`/`LeagueState` en las posiciones 6-7. Épica A agregó `VictoryTracker` al final
+(posición 8) en vez de reordenar el archivo ya commiteado. No hay dependencia de carga real entre
+`VictoryTracker` y `LeagueRules`/`LeagueState` en ningún sentido, así que este orden (Liga antes que
+VictoryTracker) es el vigente y el que refleja el código — no hace falta reordenar `project.godot`.
 
 ---
 
