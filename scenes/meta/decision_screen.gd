@@ -29,4 +29,7 @@ func setup(options: Array[InterrunDecisionOption]) -> void:
 func _on_option_selected(option: InterrunDecisionOption) -> void:
 	var bonus_id := StringName("interrun_decision_%s_run_%d" % [option.option_id, RunState.run_number])
 	MetaProgress.unlock_money_bonus_with_explicit_amount(bonus_id, option.money_bonus_amount)
+	# Fix QA (persistencia): el bonus recién registrado debe sobrevivir a un cierre del juego antes de
+	# arrancar la siguiente run.
+	MetaProgress.save()
 	decision_confirmed.emit(option.money_bonus_amount)

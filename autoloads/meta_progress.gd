@@ -74,8 +74,13 @@ func advance_run_number() -> void:
 ## Escucha EventBus.run_ended para avanzar el contador de runs, en vez de que RunState llame
 ## directamente a MetaProgress (los autoloads de estado no se mutan entre sí, solo se leen; ver
 ## _arquitectura-base.md sección 2 y diagrama Mermaid).
+## Fix QA (persistencia): guarda al cerrar cada run -- es el punto natural donde el progreso de la
+## sesión (número de run, categorías desbloqueadas durante la run, tutorial) queda fijado de forma
+## duradera; sin este save() todo se perdía al cerrar el juego pese a que la arquitectura lo asume
+## persistente entre sesiones.
 func _on_run_ended(_result: RunResult) -> void:
 	advance_run_number()
+	save()
 
 
 ## Épica A — devuelve el VictoryCategoryState de una categoría. Si no existe todavía (categoría nunca

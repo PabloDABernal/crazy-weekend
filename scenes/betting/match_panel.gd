@@ -136,6 +136,11 @@ func _on_market_widget_bet_confirmed(market_id: StringName, option_key: StringNa
 	var required: int = StakeGate.compute_required_amount(RunState.get_money(), _active_crazy_bet)
 	if stake < required:
 		return
+	# Bug QA: la única validación previa era contra el mínimo/monto forzoso -- faltaba bloquear un
+	# stake mayor al dinero disponible, que dejaría RunState.current_money en negativo (un estado no
+	# contemplado por ninguna spec, ya que StakeResolver.is_run_dead() no lo detectaría a tiempo).
+	if stake > RunState.get_money():
+		return
 
 	var market_offer: MarketOffer = _find_offer_for_option(widget, option_key)
 	if market_offer == null:

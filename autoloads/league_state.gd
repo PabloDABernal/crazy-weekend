@@ -73,6 +73,11 @@ func apply_matchday_results(results: Array[MatchResult]) -> void:
 	if current_matchday_index > LeagueRules.TOTAL_MATCHDAYS - 1:
 		generate_new_league(current_season_number + 1, _rng.randi())
 
+	# Fix QA (persistencia): standings/estadísticas de jugador/calendario de temporada son progreso
+	# duradero de la liga -- se guarda en el punto natural donde cambian (fin de cada jornada), no solo
+	# al cerrar la app (que hoy nunca invoca save() en ningún punto).
+	save()
+
 
 func _apply_single_match_result(result: MatchResult) -> void:
 	var home_standing: TeamStandingEntry = get_standing(result.home_team_id)

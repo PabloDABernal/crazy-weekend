@@ -125,6 +125,14 @@ func _start_day(day: BettingDay.Day) -> void:
 ## sábado, domingo) -- hueco de integración explícito de la spec (sección 2.3): no hay una tabla de
 ## contenido fijada por Épica D, se asume ~1/3 de los partidos por día. Reparto determinista por
 ## índice dentro de matchday_fixture.matches (no aleatorio), para que sea reproducible.
+##
+## Nota QA (confirmado, no aplicable): con chunk_size = ceil(total/3), el último día (domingo) queda
+## sin partidos solo para total ∈ {1, 2, 4} (verificado exhaustivamente). LeagueRules.TEAM_COUNT = 20
+## es una constante fija (nunca varía entre temporadas, ver LeagueState.generate_new_league()), así que
+## toda jornada de liga tiene siempre exactamente 10 partidos (20 equipos / 2), y con total=10 el
+## reparto real es 4/4/2 -- ningún día queda vacío. No se modifica esta función porque el caso
+## problemático no es alcanzable con los números reales de la liga; si en el futuro TEAM_COUNT dejara
+## de ser fijo (o impar), esta nota deja documentado que habría que revisar el reparto.
 func _split_matches_for_day(all_matches: Array[MatchFixture], day: BettingDay.Day) -> Array[MatchFixture]:
 	var total: int = all_matches.size()
 	var day_index: int = int(day)   # FRIDAY=0, SATURDAY=1, SUNDAY=2

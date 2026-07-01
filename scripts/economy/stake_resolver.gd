@@ -15,5 +15,9 @@ static func compute_required_stake(current_money: int) -> int:
 	return current_money
 
 
+## Defensa en profundidad (fix QA Épica E): compara <= 0, no == 0. El flujo normal nunca debería dejar
+## current_money negativo (la UI de apuestas ya valida stake <= RunState.get_money() antes de
+## confirmar), pero si algún camino futuro dejara pasar un valor negativo, la detección de muerte de
+## run sigue siendo correcta en vez de quedar en un estado no contemplado por ninguna spec.
 static func is_run_dead(current_money: int) -> bool:
-	return current_money == 0
+	return current_money <= 0

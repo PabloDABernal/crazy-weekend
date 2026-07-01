@@ -90,6 +90,9 @@ func _unlock_category(category_id: StringName) -> void:
 	state.unlocked_at_run_number = RunState.run_number
 	state.unlocked_at_date = Time.get_datetime_string_from_system(true)
 	MetaProgress.save_victory_category_state(state)
+	# Fix QA (persistencia): un desbloqueo de categoría es progreso duradero -- se guarda en el acto,
+	# no solo al cerrar la run, para no perderlo si el jugador cierra el juego a mitad de una run.
+	MetaProgress.save()
 
 	EventBus.victory_category_unlocked.emit(category_id, RunState.run_number)
 	_check_final_ending()

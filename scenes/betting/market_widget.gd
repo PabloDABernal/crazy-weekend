@@ -170,5 +170,9 @@ func _on_confirm_pressed() -> void:
 	var required: int = _forced_stake_amount if _forced_stake_amount >= 0 else _minimum_stake
 	if stake < required:
 		return
+	# Defensa de UI (el punto de validación real y bloqueante es MatchPanel, que conoce RunState) --
+	# nunca se emite una apuesta con stake mayor al dinero disponible.
+	if stake > RunState.get_money():
+		return
 
 	bet_confirmed.emit(market_id, _selected_option_key, stake)
