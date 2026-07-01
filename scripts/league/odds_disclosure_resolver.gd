@@ -36,7 +36,7 @@ static func build_market_offer(market: MarketDef, option_key: String, p_real: fl
 	offer.match_id = match_id
 	offer.displayed_probability_min = range_min
 	offer.displayed_probability_max = range_max
-	offer.confidence = compute_confidence(market, phase, rng)
+	offer.confidence = compute_confidence(range_width)
 	offer.option_key = StringName(option_key)
 	offer.threshold_display = market.threshold if _is_over_under(market.kind) else -1.0
 
@@ -58,11 +58,15 @@ static func compute_range_width(_market: MarketDef, _phase: NarrativePhase.Phase
 	return max(LeagueRules.ODDS_DISPLAY_RANGE_WIDTH_BASE + variation, 0.01)
 
 
-## confidence = 1.0 - compute_range_width(market, phase) / ODDS_DISPLAY_RANGE_WIDTH_MAX_POSSIBLE
+## confidence = 1.0 - range_width / ODDS_DISPLAY_RANGE_WIDTH_MAX_POSSIBLE
 ## En el MVP (sin investigación inter-run), varía solo por mercado y fase narrativa, no por progreso
 ## del jugador — ver sección 5.3 de la spec.
-static func compute_confidence(market: MarketDef, phase: NarrativePhase.Phase, rng: RandomNumberGenerator) -> float:
-	var range_width: float = compute_range_width(market, phase, rng)
+##
+## Recibe range_width ya calculado (en vez de recalcularlo internamente vía compute_range_width) para
+## que confidence describa el ancho del MISMO rango que build_market_offer efectivamente mostró en
+## displayed_probability_min/max. Recalcularlo aquí consumiría una nueva muestra del RNG y produciría
+## un ancho distinto al ya usado para construir el rango visible (bug detectado por Reviewer).
+static func compute_confidence(range_width: float) -> float:
 	return clampf(1.0 - range_width / LeagueRules.ODDS_DISPLAY_RANGE_WIDTH_MAX_POSSIBLE, 0.0, 1.0)
 
 

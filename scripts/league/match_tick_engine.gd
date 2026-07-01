@@ -33,7 +33,9 @@ static func resolve_tick(previous_state: MatchTickState, home_team: TeamDef, awa
 	var attack_pressure_home: float = home_team.offense * (1.0 + home_team.home_advantage) * home_team.current_form
 	var attack_pressure_away: float = away_team.offense * away_team.current_form
 
-	# 2. Intentos ofensivos por equipo (Poisson aproximado por muestreo acumulado de eventos independientes).
+	# 2. Intentos ofensivos por equipo (Poisson aproximado por muestreo acumulado de eventos
+	# independientes); la atribución de gol a un jugador concreto (paso 3 de la spec, sección 4.3)
+	# ocurre dentro de _resolve_team_attempts, no como paso separado aquí.
 	_resolve_team_attempts(state, tick_events, home_team, away_team, attack_pressure_home, true, rng)
 	_resolve_team_attempts(state, tick_events, away_team, home_team, attack_pressure_away, false, rng)
 

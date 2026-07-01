@@ -57,22 +57,40 @@ static func _compute_1x2(state: MatchTickState, home_team: TeamDef, away_team: T
 	var goal_diff: int = state.home_goals - state.away_goals
 	if goal_diff != 0 and elapsed > 0.0:
 		var shift: float = clampf(float(goal_diff) * 0.15 * elapsed, -0.85, 0.85)
-		if shift > 0.0:
-			p_home = clampf(p_home + shift * (p_draw + p_away), 0.01, 0.97)
-			var remaining: float = 1.0 - p_home
-			var draw_away_total: float = p_draw + p_away
-			if draw_away_total > 0.0:
-				p_draw = remaining * (p_draw / draw_away_total)
-				p_away = remaining * (p_away / draw_away_total)
-		else:
-			p_away = clampf(p_away - shift * (p_draw + p_home), 0.01, 0.97)
-			var remaining_a: float = 1.0 - p_away
-			var draw_home_total: float = p_draw + p_home
-			if draw_home_total > 0.0:
-				p_draw = remaining_a * (p_draw / draw_home_total)
-				p_home = remaining_a * (p_home / draw_home_total)
+		var probabilities: Dictionary = {"home": p_home, "draw": p_draw, "away": p_away}
+		var favored_key: String = "home" if shift > 0.0 else "away"
+		probabilities = _shift_probability_mass(probabilities, favored_key, absf(shift))
+		p_home = probabilities["home"]
+		p_draw = probabilities["draw"]
+		p_away = probabilities["away"]
 
 	return _normalize({"home": p_home, "draw": p_draw, "away": p_away})
+
+
+## Traslada masa de probabilidad hacia favored_key desde el resto de claves del diccionario,
+## proporcionalmente al peso relativo de cada una: favored_key sube en shift_abs * (suma del resto),
+## recortado a [0.01, 0.97], y el resto se redistribuye conservando su proporción relativa dentro de
+## la masa restante. Único helper reusado por ambas ramas (home favorecido / away favorecido) de
+## _compute_1x2, para evitar duplicar la misma lógica de redistribución dos veces.
+static func _shift_probability_mass(probabilities: Dictionary, favored_key: String, shift_abs: float) -> Dictionary:
+	var other_keys: Array = []
+	for key in probabilities.keys():
+		if key != favored_key:
+			other_keys.append(key)
+
+	var others_total: float = 0.0
+	for key in other_keys:
+		others_total += probabilities[key]
+
+	var result: Dictionary = probabilities.duplicate()
+	result[favored_key] = clampf(probabilities[favored_key] + shift_abs * others_total, 0.01, 0.97)
+
+	var remaining: float = 1.0 - result[favored_key]
+	if others_total > 0.0:
+		for key in other_keys:
+			result[key] = remaining * (probabilities[key] / others_total)
+
+	return result
 
 
 ## Estima goles totales esperados en los 90 minutos combinando atributos ofensivos/defensivos con los
