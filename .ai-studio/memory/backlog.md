@@ -24,19 +24,19 @@ Candidatas a historia cuando se promueva:
 ## Épicas
 
 ### Épica A — Sistema de tipos de victoria y final canónico
-**Qué**: implementar el sistema de colección que determina el final real del juego: 8 categorías requeridas (7 de mercado + 1 slot combinado de hito económico), cada una con su propio reto de desbloqueo, más la condición de victoria final que se dispara al completarlas todas.
+**Qué**: implementar el sistema de colección que determina el final real del juego. Diseño completo: 8 categorías requeridas (7 de mercado + 1 slot combinado de hito económico). **Versión MVP**: 6 categorías requeridas (5 de mercado — Base, Medias, Goles, Tarjetas, Faltas — + el slot de hito económico), ya que Corners y Resultado Exacto quedan diferidos a post-MVP. Cada categoría tiene su propio reto de desbloqueo, más la condición de victoria final que se dispara al completarlas todas (ver A.9).
 
 **Por qué**: es la win condition real del juego (ver `vision.md` y `game-design.md` → "Win condition — Escape"). Sin este sistema no existe final canónico ni razón mecánica para que el jugador persista entre runs y temporadas.
 
-**Criterio de éxito de la épica**: un jugador puede, jugando de forma persistente a través de runs y temporadas, desbloquear las 7 categorías de mercado y el slot de hito económico, y al completarse la octava categoría se dispara el final canónico — independientemente de si la run puntual en la que ocurre se gana o se pierde en dinero.
+**Criterio de éxito de la épica (versión MVP)**: un jugador puede, jugando de forma persistente a través de runs y temporadas, desbloquear las 5 categorías de mercado disponibles en el MVP (Base, Medias, Goles, Tarjetas, Faltas) y el slot de hito económico, y al completarse la sexta (de 6) se dispara el final canónico — independientemente de si la run puntual en la que ocurre se gana o se pierde en dinero. La versión completa (8/8, con Corners y Resultado Exacto) es un criterio de éxito post-MVP — ver A.6, A.7 y A.9 ("versión completa").
 
-**Decisión de alcance pendiente**: ver bloque "Pregunta al usuario" más abajo — esta épica requiere 2 mercados de apuesta nuevos (Corners, Resultado Exacto) que no están en el MVP original de mercados (`game-design.md` → "Sistema de apuestas → Mercados disponibles (MVP)"). Hasta resolver esa pregunta, las historias de Corners y Resultado Exacto quedan marcadas **[BLOQUEADA — pendiente decisión de alcance]**.
+**Decisión de alcance (resuelta)**: el Director Creativo decidió que Corners y Resultado Exacto quedan diferidos a post-MVP (no entran en el MVP de mercados definido en `game-design.md` → "Sistema de apuestas → Mercados disponibles (MVP)"). En consecuencia, el MVP de esta épica activa el final canónico con **6 de las 8 categorías totales** (5 de mercado — Base, Medias, Goles, Tarjetas, Faltas — más el slot combinado de hito económico); las 8 categorías completas (incluyendo Corners y Resultado Exacto) solo llegan con el contenido post-MVP. Ver historias A.6 y A.7 movidas a la sección post-MVP más abajo, y la nota de "versión MVP vs. versión completa" en A.9.
 
 ---
 
 #### Historia A.1 — Detección de Victoria de Base (1X2 en partido sorpresa)
 **Qué**: detectar y desbloquear la categoría "Victoria de Base" cuando el jugador acierta el mercado 1X2 (resultado final) en un partido marcado internamente como "sorpresa" (el equipo con menor probabilidad gana).
-**Por qué**: es una de las 7 categorías de mercado requeridas para el final canónico; usa un mercado ya existente en el MVP (1X2), por lo que no depende de la decisión de alcance pendiente.
+**Por qué**: es una de las 5 categorías de mercado del MVP (7 en la versión completa) requeridas para el final canónico; usa un mercado ya existente en el MVP (1X2).
 **Criterio de éxito**: la categoría se marca como desbloqueada la primera vez que el jugador gana una apuesta 1X2 en un partido que el sistema clasificó como sorpresa (menor probabilidad de las opciones ganó). El desbloqueo persiste en meta-progresión y se refleja en el Expediente con fecha/run y flavor text (ver Épica C).
 
 #### Historia A.2 — Detección de Victoria de Medias (over/under 2.5 en 3 partidos)
@@ -59,19 +59,7 @@ Candidatas a historia cuando se promueva:
 **Qué**: detectar y desbloquear "Victoria de Faltas" cuando el jugador acierta un mercado de faltas en un partido con más de 20 faltas totales.
 **Por qué**: categoría de mercado requerida para el final canónico.
 **Criterio de éxito**: la categoría se desbloquea al primer acierto de un mercado de faltas en un partido cuyo total de faltas (dato ya contemplado como estadística de panel según `game-design.md`) supera 20.
-**Depende de**: el mercado "Faltas totales (over/under)" — está documentado en `game-design.md` como mercado adicional necesario, derivable de estadísticas de partido ya existentes (no requiere mercado nuevo de UI compleja, a diferencia de Corners/Resultado exacto). Marcar para Architect: confirmar si este mercado entra directo al MVP dado su bajo costo de implementación (reutiliza panel de estadísticas ya definido) — no forma parte de la pregunta de alcance bloqueante de A.6/A.7.
-
-#### Historia A.6 — Mercado de Corners + Detección de Victoria de Corners **[BLOQUEADA — pendiente decisión de alcance]**
-**Qué**: añadir el mercado de apuesta "Corners (over/under)" y detectar/desbloquear "Victoria de Corners" cuando el jugador acierta corners con el umbral más alto disponible (over 9.5+) al menos una vez.
-**Por qué**: categoría de mercado requerida para el final canónico. Requiere un mercado de apuesta que no existe en el MVP original.
-**Criterio de éxito**: existe un mercado de corners jugable con al menos el umbral 9.5+; la categoría se desbloquea al primer acierto en ese umbral específico (no en umbrales menores).
-**Bloqueo**: no se debe pasar a Architect hasta que el usuario confirme si este mercado entra en el MVP o en un patch posterior (ver pregunta de alcance).
-
-#### Historia A.7 — Mercado de Resultado Exacto + Detección de Victoria de Resultado Exacto **[BLOQUEADA — pendiente decisión de alcance]**
-**Qué**: añadir el mercado de apuesta "Resultado exacto" (marcador exacto, cuota alta) y detectar/desbloquear "Victoria de Resultado Exacto" al primer acierto de ese mercado.
-**Por qué**: categoría de mercado requerida para el final canónico. Requiere un mercado de apuesta que no existe en el MVP original.
-**Criterio de éxito**: existe un mercado de resultado exacto jugable con probabilidad/cuota coherente con su rareza; la categoría se desbloquea en el primer acierto, sin requisito de volumen adicional (el propio mercado ya es el reto).
-**Bloqueo**: mismo bloqueo que A.6.
+**Depende de**: el mercado "Faltas totales (over/under)" — está documentado en `game-design.md` como mercado adicional necesario, derivable de estadísticas de partido ya existentes (no requiere mercado nuevo de UI compleja, a diferencia de Corners/Resultado exacto). Este mercado sí entra en el MVP (a diferencia de Corners y Resultado Exacto, diferidos a post-MVP — ver sección "Épica A (post-MVP)"). Marcar para Architect: confirmar detalle de implementación dado su bajo costo (reutiliza panel de estadísticas ya definido).
 
 #### Historia A.8 — Slot combinado de hito económico (10K / 100K / 1M)
 **Qué**: detectar y desbloquear el slot combinado de Familia B cuando el dinero del jugador supera 10.000$, 100.000$ o 1.000.000$ en cualquier momento dentro de una misma run (no acumulado histórico), sin importar si la run termina ganada o perdida.
@@ -79,10 +67,27 @@ Candidatas a historia cuando se promueva:
 **Criterio de éxito**: alcanzar cualquiera de las 3 cifras dentro de una run marca el slot combinado como resuelto para el final canónico. Las tres cifras se registran y siguen siendo "perseguibles" por separado como registro histórico visible en el Expediente (para completismo), aunque solo una sea necesaria para el final. El hito se evalúa en tiempo real dentro de la run (no solo al cierre del domingo), ya que el propio pico de dinero puede ocurrir y perderse antes del final de la run.
 
 #### Historia A.9 — Condición de victoria final (final canónico)
-**Qué**: implementar la lógica de cierre de campaña: cuando el jugador ha desbloqueado las 8 categorías requeridas (7 de mercado + slot de hito económico), disparar el final canónico en la run donde se completa la octava, sin importar el resultado económico de esa run puntual.
+**Qué**: implementar la lógica de cierre de campaña: cuando el jugador ha desbloqueado las categorías requeridas, disparar el final canónico en la run donde se completa la última, sin importar el resultado económico de esa run puntual.
+**Versión MVP (activa)**: el final canónico se dispara al completar **6 de las 8 categorías totales** — las 5 categorías de mercado disponibles en el MVP (Base, Medias, Goles, Tarjetas, Faltas) más el slot combinado de hito económico. Corners y Resultado Exacto no forman parte del set evaluado en esta versión.
+**Versión completa (post-MVP)**: una vez incorporado el contenido post-MVP (A.6 y A.7), el sistema debe evaluar el set completo de **8 de 8 categorías** (7 de mercado + slot de hito económico) para el final canónico. Ver nota de dependencia abajo.
 **Por qué**: es el evento que cierra la experiencia completa del juego descrita en `vision.md` ("la salida existe pero hay que encontrarla").
-**Criterio de éxito**: el sistema evalúa el estado de las 8 categorías tras cada resolución de apuesta/hito relevante; en cuanto la octava se completa, se dispara el evento de final canónico (contenido narrativo del final queda fuera de esta historia — pertenece a diseño narrativo/game-designer, esta historia cubre solo la condición y el disparo del evento).
-**Depende de**: A.1–A.8 (y su resolución de alcance en A.6/A.7).
+**Criterio de éxito**: el sistema evalúa el estado de las categorías requeridas (según la versión activa, MVP o completa) tras cada resolución de apuesta/hito relevante; en cuanto se completa la última categoría pendiente, se dispara el evento de final canónico (contenido narrativo del final queda fuera de esta historia — pertenece a diseño narrativo/game-designer, esta historia cubre solo la condición y el disparo del evento).
+**Depende de**: A.1–A.5 y A.8 para la versión MVP. Para la versión completa, además depende de A.6 y A.7 (post-MVP, ver sección correspondiente) — Architect debe diseñar el conteo de forma que ampliar de 6 a 8 categorías al llegar el contenido post-MVP no requiera rehacer la lógica de disparo, solo ampliar el set evaluado.
+
+---
+
+### Épica A (post-MVP) — Mercados y categorías diferidos: Corners y Resultado Exacto
+Decisión del Director Creativo: Corners y Resultado Exacto quedan diferidos a post-MVP. El MVP lanza con el final canónico activable en su versión reducida de 6/8 categorías (ver A.9 — versión MVP); estas dos historias completan el set a 8/8 y quedan aquí como candidatas maduras para cuando se aborde el contenido post-MVP, junto con la Colección extendida (ver "Ideas" más arriba).
+
+#### Historia A.6 — Mercado de Corners + Detección de Victoria de Corners (post-MVP)
+**Qué**: añadir el mercado de apuesta "Corners (over/under)" y detectar/desbloquear "Victoria de Corners" cuando el jugador acierta corners con el umbral más alto disponible (over 9.5+) al menos una vez.
+**Por qué**: categoría de mercado requerida para la versión completa (8/8) del final canónico. Diferida a post-MVP por decisión del Director Creativo — no bloquea el MVP, que lanza con la versión reducida (6/8, ver A.9).
+**Criterio de éxito**: existe un mercado de corners jugable con al menos el umbral 9.5+; la categoría se desbloquea al primer acierto en ese umbral específico (no en umbrales menores).
+
+#### Historia A.7 — Mercado de Resultado Exacto + Detección de Victoria de Resultado Exacto (post-MVP)
+**Qué**: añadir el mercado de apuesta "Resultado exacto" (marcador exacto, cuota alta) y detectar/desbloquear "Victoria de Resultado Exacto" al primer acierto de ese mercado.
+**Por qué**: categoría de mercado requerida para la versión completa (8/8) del final canónico. Diferida a post-MVP por decisión del Director Creativo — no bloquea el MVP, que lanza con la versión reducida (6/8, ver A.9).
+**Criterio de éxito**: existe un mercado de resultado exacto jugable con probabilidad/cuota coherente con su rareza; la categoría se desbloquea en el primer acierto, sin requisito de volumen adicional (el propio mercado ya es el reto).
 
 ---
 
@@ -146,7 +151,7 @@ Candidatas a historia cuando se promueva:
 
 ## Historias
 
-(Ver historias A.1–A.9, B.1–B.4, C.1–C.2 dentro de cada épica arriba. Se listan agrupadas por épica para mantener contexto; cuando una historia pase a Architect, puede moverse a un estado "en diseño" si el equipo prefiere trackear eso aquí.)
+(Ver historias A.1–A.9 (MVP), A.6–A.7 (post-MVP, sub-sección propia), B.1–B.4, C.1–C.2 dentro de cada épica arriba. Se listan agrupadas por épica para mantener contexto; cuando una historia pase a Architect, puede moverse a un estado "en diseño" si el equipo prefiere trackear eso aquí.)
 
 ---
 
