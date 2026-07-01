@@ -23,7 +23,7 @@ script = ExtResource("3")
 
 [node name="TopBar" type="Control" parent="."]
 layout_mode = 0
-offset_right = 1024.0
+offset_right = 1280.0
 offset_bottom = 60.0
 script = ExtResource("4")
 
@@ -43,31 +43,31 @@ text = ""
 [node name="PendingBetsSummary" type="Control" parent="TopBar"]
 layout_mode = 0
 offset_left = 640.0
-offset_right = 1024.0
+offset_right = 1280.0
 offset_bottom = 60.0
 
 [node name="PendingBetsList" type="VBoxContainer" parent="TopBar/PendingBetsSummary"]
 layout_mode = 0
-offset_right = 384.0
+offset_right = 640.0
 offset_bottom = 60.0
 
 [node name="MatchSelector" type="Control" parent="."]
 layout_mode = 0
 offset_top = 64.0
-offset_right = 1024.0
+offset_right = 1280.0
 offset_bottom = 100.0
 script = ExtResource("5")
 
 [node name="TabsContainer" type="HBoxContainer" parent="MatchSelector"]
 layout_mode = 0
-offset_right = 1024.0
+offset_right = 1280.0
 offset_bottom = 36.0
 
 [node name="MatchPanelContainer" type="Control" parent="."]
 layout_mode = 0
 offset_top = 104.0
-offset_right = 1024.0
-offset_bottom = 1104.0
+offset_right = 1280.0
+offset_bottom = 720.0
 clip_contents = true
 
 [node name="CrazyMomentOverlay" parent="." instance=ExtResource("6")]

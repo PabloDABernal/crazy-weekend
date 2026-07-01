@@ -22,11 +22,11 @@ signal bet_confirmed(match_id: StringName, market_offer: MarketOffer, stake: int
 signal tick_bet_requirement_satisfied(match_id: StringName)
 signal advance_tick_requested()
 
-@onready var _scoreboard_panel: ScoreboardPanel = $ScoreboardPanel
-@onready var _stats_panel: StatsPanel = $StatsPanel
-@onready var _commentary_panel: CommentaryPanel = $CommentaryPanel
-@onready var _markets_container: Container = $MarketsContainer
-@onready var _advance_tick_button: Button = $AdvanceTickButton
+@onready var _scoreboard_panel: ScoreboardPanel = $VBox/ScoreboardPanel
+@onready var _stats_panel: StatsPanel = $VBox/StatsPanel
+@onready var _commentary_panel: CommentaryPanel = $VBox/CommentaryPanel
+@onready var _markets_container: Container = $VBox/MarketsScroll/MarketsContainer
+@onready var _advance_tick_button: Button = $VBox/AdvanceTickButton
 
 var match_id: StringName = &""
 var _current_tick_index: int = 0

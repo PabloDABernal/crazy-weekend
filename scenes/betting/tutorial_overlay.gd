@@ -7,10 +7,10 @@ class_name TutorialOverlay extends Control
 ## Referencias reservadas para un futuro reposicionamiento dinámico sobre el MatchPanel enfocado
 ## (detalle de UX no bloqueante, ver spec sección 6.2) -- en este MVP las anotaciones usan posición
 ## fija definida en tutorial_overlay.tscn, sin seguir al panel activo.
-@onready var _annotation_probabilities: Control = $AnnotationBubble_Probabilities
-@onready var _annotation_stake: Control = $AnnotationBubble_Stake
-@onready var _annotation_balance: Control = $AnnotationBubble_Balance
-@onready var _skip_hint_label: Label = $SkipHintLabel
+@onready var _annotation_probabilities: Control = $TutorialPanel/VBox/AnnotationBubble_Probabilities
+@onready var _annotation_stake: Control = $TutorialPanel/VBox/AnnotationBubble_Stake
+@onready var _annotation_balance: Control = $TutorialPanel/VBox/AnnotationBubble_Balance
+@onready var _skip_hint_label: Label = $TutorialPanel/VBox/SkipHintLabel
 
 
 func _ready() -> void:

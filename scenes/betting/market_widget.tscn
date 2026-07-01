@@ -2,45 +2,36 @@
 
 [ext_resource type="Script" path="res://scenes/betting/market_widget.gd" id="1"]
 
-[node name="MarketWidget" type="Control"]
-layout_mode = 3
-anchors_preset = 0
+[node name="MarketWidget" type="VBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 100)
 script = ExtResource("1")
 
 [node name="MarketTitleLabel" type="Label" parent="."]
-layout_mode = 0
-offset_right = 400.0
-offset_bottom = 24.0
+layout_mode = 2
 text = ""
 
-[node name="OptionsContainer" type="HBoxContainer" parent="."]
-layout_mode = 0
-offset_top = 28.0
-offset_right = 400.0
-offset_bottom = 68.0
+[node name="OptionsContainer" type="HFlowContainer" parent="."]
+layout_mode = 2
 
-[node name="StakeInput" type="SpinBox" parent="."]
-layout_mode = 0
-offset_top = 72.0
-offset_right = 120.0
-offset_bottom = 96.0
+[node name="BetRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="StakeInput" type="SpinBox" parent="BetRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 min_value = 0.0
 max_value = 1000000.0
 step = 1.0
 
-[node name="ConfirmBetButton" type="Button" parent="."]
-layout_mode = 0
-offset_left = 124.0
-offset_top = 72.0
-offset_right = 224.0
-offset_bottom = 96.0
+[node name="ConfirmBetButton" type="Button" parent="BetRow"]
+layout_mode = 2
 disabled = true
 text = "Apostar"
 
 [node name="DisabledOverlay" type="ColorRect" parent="."]
 visible = false
-layout_mode = 0
-offset_right = 400.0
-offset_bottom = 100.0
+layout_mode = 2
+custom_minimum_size = Vector2(0, 4)
 color = Color(0, 0, 0, 0.5)
 mouse_filter = 1

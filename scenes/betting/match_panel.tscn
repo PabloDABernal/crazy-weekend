@@ -8,130 +8,133 @@
 
 [node name="MatchPanel" type="Control"]
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 script = ExtResource("1")
 
-[node name="ScoreboardPanel" type="Control" parent="."]
-layout_mode = 0
-offset_right = 600.0
-offset_bottom = 60.0
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ScoreboardPanel" type="Control" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 56)
 script = ExtResource("2")
 
-[node name="HomeTeamLabel" type="Label" parent="ScoreboardPanel"]
+[node name="HomeTeamLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
 offset_right = 200.0
 offset_bottom = 24.0
 text = ""
 
-[node name="AwayTeamLabel" type="Label" parent="ScoreboardPanel"]
+[node name="AwayTeamLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
 offset_left = 400.0
 offset_right = 600.0
 offset_bottom = 24.0
 text = ""
 
-[node name="ScoreLabel" type="Label" parent="ScoreboardPanel"]
+[node name="ScoreLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
 offset_left = 250.0
 offset_right = 350.0
 offset_bottom = 24.0
 text = ""
 
-[node name="MinuteLabel" type="Label" parent="ScoreboardPanel"]
+[node name="MinuteLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
 offset_top = 28.0
 offset_right = 200.0
 offset_bottom = 52.0
 text = ""
 
-[node name="StatsPanel" type="Control" parent="."]
-layout_mode = 0
-offset_top = 64.0
-offset_right = 600.0
-offset_bottom = 160.0
+[node name="StatsPanel" type="Control" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 100)
 script = ExtResource("3")
 
-[node name="PossessionBar" type="ProgressBar" parent="StatsPanel"]
+[node name="PossessionBar" type="ProgressBar" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_right = 600.0
+offset_right = 590.0
 offset_bottom = 24.0
 max_value = 100.0
 value = 50.0
 
-[node name="ShotsOnTargetLabel" type="Label" parent="StatsPanel"]
+[node name="ShotsOnTargetLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
 offset_top = 28.0
-offset_right = 600.0
+offset_right = 590.0
 offset_bottom = 48.0
 text = ""
 
-[node name="CardsLabel" type="Label" parent="StatsPanel"]
+[node name="CardsLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
 offset_top = 52.0
-offset_right = 600.0
+offset_right = 590.0
 offset_bottom = 72.0
 text = ""
 
-[node name="CornersLabel" type="Label" parent="StatsPanel"]
+[node name="CornersLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
 offset_top = 76.0
-offset_right = 600.0
+offset_right = 590.0
 offset_bottom = 96.0
 text = ""
 
-[node name="FoulsLabel" type="Label" parent="StatsPanel"]
+[node name="FoulsLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
 offset_top = 100.0
-offset_right = 600.0
+offset_right = 590.0
 offset_bottom = 120.0
 text = ""
 
-[node name="CommentaryPanel" type="Control" parent="."]
-layout_mode = 0
-offset_top = 164.0
-offset_right = 600.0
-offset_bottom = 240.0
+[node name="CommentaryPanel" type="Control" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
 script = ExtResource("4")
 
-[node name="CommentaryLines" type="VBoxContainer" parent="CommentaryPanel"]
+[node name="CommentaryLines" type="VBoxContainer" parent="VBox/CommentaryPanel"]
 layout_mode = 0
-offset_right = 600.0
-offset_bottom = 76.0
+offset_right = 590.0
+offset_bottom = 80.0
 
-[node name="MarketsContainer" type="VBoxContainer" parent="."]
-layout_mode = 0
-offset_top = 244.0
-offset_right = 600.0
-offset_bottom = 1044.0
+[node name="MarketsScroll" type="ScrollContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
 
-[node name="MarketWidget_1x2" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketsContainer" type="VBoxContainer" parent="VBox/MarketsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MarketWidget_1x2" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_goals_ou_1_5" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_goals_ou_1_5" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_goals_ou_2_5" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_goals_ou_2_5" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_goals_ou_3_5" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_goals_ou_3_5" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_first_scorer" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_first_scorer" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_btts" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_btts" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_cards_ou" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_cards_ou" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="MarketWidget_fouls_ou" parent="MarketsContainer" instance=ExtResource("5")]
+[node name="MarketWidget_fouls_ou" parent="VBox/MarketsScroll/MarketsContainer" instance=ExtResource("5")]
 layout_mode = 2
 
-[node name="AdvanceTickButton" type="Button" parent="."]
-layout_mode = 0
-offset_top = 1048.0
-offset_right = 200.0
-offset_bottom = 1080.0
+[node name="AdvanceTickButton" type="Button" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
 disabled = true
 text = "Continuar"

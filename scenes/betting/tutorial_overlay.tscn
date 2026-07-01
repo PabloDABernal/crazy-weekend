@@ -10,47 +10,49 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("1")
 
-[node name="AnnotationBubble_Probabilities" type="Control" parent="."]
+[node name="TutorialPanel" type="PanelContainer" parent="."]
 layout_mode = 0
-offset_right = 200.0
-offset_bottom = 60.0
+offset_left = 620.0
+offset_top = 110.0
+offset_right = 1010.0
+offset_bottom = 420.0
 
-[node name="Label" type="Label" parent="AnnotationBubble_Probabilities"]
+[node name="VBox" type="VBoxContainer" parent="TutorialPanel"]
+layout_mode = 2
+
+[node name="AnnotationBubble_Probabilities" type="Control" parent="TutorialPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
+
+[node name="Label" type="Label" parent="TutorialPanel/VBox/AnnotationBubble_Probabilities"]
 layout_mode = 0
-offset_right = 200.0
-offset_bottom = 60.0
+offset_right = 380.0
+offset_bottom = 80.0
 autowrap_mode = 3
-text = "Este rango es lo que la casa te muestra: cuanto más ancho, menos preciso."
+text = "📊 PROBABILIDADES: Este rango es lo que la casa te muestra. Cuanto más ancho, menos preciso — investigar entre semana lo reduce."
 
-[node name="AnnotationBubble_Stake" type="Control" parent="."]
-layout_mode = 0
-offset_top = 64.0
-offset_right = 200.0
-offset_bottom = 124.0
+[node name="AnnotationBubble_Stake" type="Control" parent="TutorialPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
 
-[node name="Label" type="Label" parent="AnnotationBubble_Stake"]
+[node name="Label" type="Label" parent="TutorialPanel/VBox/AnnotationBubble_Stake"]
 layout_mode = 0
-offset_right = 200.0
-offset_bottom = 60.0
+offset_right = 380.0
+offset_bottom = 80.0
 autowrap_mode = 3
-text = "Elegí cuánto apostar. El mínimo es obligatorio para continuar."
+text = "💰 APUESTA: Elegí cuánto apostar. El mínimo obligatorio es 50$. Apostar más aumenta la ganancia potencial."
 
-[node name="AnnotationBubble_Balance" type="Control" parent="."]
-layout_mode = 0
-offset_top = 128.0
-offset_right = 200.0
-offset_bottom = 188.0
+[node name="AnnotationBubble_Balance" type="Control" parent="TutorialPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
 
-[node name="Label" type="Label" parent="AnnotationBubble_Balance"]
+[node name="Label" type="Label" parent="TutorialPanel/VBox/AnnotationBubble_Balance"]
 layout_mode = 0
-offset_right = 200.0
-offset_bottom = 60.0
+offset_right = 380.0
+offset_bottom = 80.0
 autowrap_mode = 3
-text = "Este es tu dinero disponible. Si llega a $0, la run termina."
+text = "💵 SALDO: Arriba a la izquierda. Si llega a $0 antes del domingo, la run termina. ¡Que no te quedes sin dinero!"
 
-[node name="SkipHintLabel" type="Label" parent="."]
-layout_mode = 0
-offset_top = 192.0
-offset_right = 300.0
-offset_bottom = 216.0
-text = "Tenés que apostar para continuar."
+[node name="SkipHintLabel" type="Label" parent="TutorialPanel/VBox"]
+layout_mode = 2
+text = "👆 Hacé una apuesta para cerrar este tutorial."

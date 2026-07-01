@@ -1,4 +1,4 @@
-class_name MarketWidget extends Control
+class_name MarketWidget extends VBoxContainer
 ## Componente único de mercado, parametrizado por MarketDef.kind (E.4). Reutilizado para los 8
 ## MarketDef.kind del catálogo MVP -- no hay una escena por mercado.
 ## Ver .ai-studio/specs/epic-e-pantalla-de-apuestas.md sección 3.3.
@@ -9,8 +9,8 @@ signal bet_confirmed(market_id: StringName, option_key: StringName, stake: int)
 
 @onready var _market_title_label: Label = $MarketTitleLabel
 @onready var _options_container: Container = $OptionsContainer
-@onready var _stake_input: SpinBox = $StakeInput
-@onready var _confirm_bet_button: Button = $ConfirmBetButton
+@onready var _stake_input: SpinBox = $BetRow/StakeInput
+@onready var _confirm_bet_button: Button = $BetRow/ConfirmBetButton
 @onready var _disabled_overlay: Control = $DisabledOverlay
 
 var market_id: StringName = &""
@@ -94,18 +94,15 @@ func _rebuild_option_buttons(offers: Array[MarketOffer]) -> void:
 
 	for offer in offers:
 		var button := Button.new()
-		button.text = _resolve_option_label(offer)
+		var label := _resolve_option_label(offer)
+		var pct_min := int(round(offer.displayed_probability_min * 100.0))
+		var pct_max := int(round(offer.displayed_probability_max * 100.0))
+		button.text = "%s\n%d%%-%d%%" % [label, pct_min, pct_max]
 		button.toggle_mode = true
+		button.custom_minimum_size = Vector2(80, 40)
 		button.pressed.connect(_on_option_button_pressed.bind(offer.option_key))
 		_options_container.add_child(button)
 		_option_buttons[offer.option_key] = button
-
-		var odds_range_label := Label.new()
-		odds_range_label.text = "%d%%-%d%%" % [
-			int(round(offer.displayed_probability_min * 100.0)),
-			int(round(offer.displayed_probability_max * 100.0)),
-		]
-		button.add_child(odds_range_label)
 
 
 func _resolve_market_title(offer: MarketOffer) -> String:
