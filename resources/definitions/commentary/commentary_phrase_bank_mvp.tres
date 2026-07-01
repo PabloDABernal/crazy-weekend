@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="CommentaryPhraseBank" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/commentary/commentary_phrase_bank.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+templates_by_event_and_phase = {
+0: {
+1: ["¡GOL de {team}! El marcador queda {score}."],
+2: ["¡GOL de {team}! El marcador queda {score}."],
+3: ["¡GOOOL de {team}! {score} y el público enloquece."],
+4: ["¡GOL ABSURDO de {team}! {score}, esto ya no tiene explicación."]
+},
+1: {
+1: ["Tarjeta para {team}."],
+2: ["Tarjeta para {team}."],
+3: ["Tarjeta amarilla para {team}, el árbitro no perdona."],
+4: ["Tarjeta para {team}, el partido se calienta."]
+},
+2: {
+1: ["Remate a puerta de {team}."],
+2: ["Remate a puerta de {team}."],
+3: ["Ocasión clara para {team}, remate a puerta."],
+4: ["Remate a puerta de {team}, todo puede pasar."]
+}
+}
+no_event_templates = {
+1: "El partido sigue su curso, {score}.",
+2: "El partido sigue su curso, {score}.",
+3: "Momento de calma en el marcador {score}.",
+4: "Todo tranquilo, de momento, {score}."
+}
+crazy_moment_templates = {
+1: "Algo raro está pasando ahí dentro...",
+2: "Algo raro está pasando ahí dentro...",
+3: "La casa quiere que apuestes fuerte ahora mismo.",
+4: "Esto es una encerrona y lo sabés. Apostá."
+}

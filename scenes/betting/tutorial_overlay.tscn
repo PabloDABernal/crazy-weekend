@@ -1,0 +1,56 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/betting/tutorial_overlay.gd" id="1"]
+
+[node name="TutorialOverlay" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="AnnotationBubble_Probabilities" type="Control" parent="."]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 60.0
+
+[node name="Label" type="Label" parent="AnnotationBubble_Probabilities"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 60.0
+autowrap_mode = 3
+text = "Este rango es lo que la casa te muestra: cuanto más ancho, menos preciso."
+
+[node name="AnnotationBubble_Stake" type="Control" parent="."]
+layout_mode = 0
+offset_top = 64.0
+offset_right = 200.0
+offset_bottom = 124.0
+
+[node name="Label" type="Label" parent="AnnotationBubble_Stake"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 60.0
+autowrap_mode = 3
+text = "Elegí cuánto apostar. El mínimo es obligatorio para continuar."
+
+[node name="AnnotationBubble_Balance" type="Control" parent="."]
+layout_mode = 0
+offset_top = 128.0
+offset_right = 200.0
+offset_bottom = 188.0
+
+[node name="Label" type="Label" parent="AnnotationBubble_Balance"]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 60.0
+autowrap_mode = 3
+text = "Este es tu dinero disponible. Si llega a $0, la run termina."
+
+[node name="SkipHintLabel" type="Label" parent="."]
+layout_mode = 0
+offset_top = 192.0
+offset_right = 300.0
+offset_bottom = 216.0
+text = "Tenés que apostar para continuar."

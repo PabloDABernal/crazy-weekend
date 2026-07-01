@@ -15,6 +15,14 @@ var _victory_category_states: Dictionary = {}   # { category_id (StringName): Vi
 var _final_ending_triggered: bool = false
 var _final_ending_triggered_at_run_number: int = -1
 
+# --- Épica E — Tutorial de primera apuesta (E.2) ---
+var _first_bet_tutorial_completed: bool = false
+
+# --- Épica E — Bonus de monto explícito (decisión inter-run, E.6) ---
+# { bonus_id (StringName): amount (int) } — bonus generados en runtime que no tienen un
+# MetaMoneyBonus.tres de catálogo correspondiente. Ver epic-e-pantalla-de-apuestas.md sección 8.4.
+var _explicit_money_bonuses: Dictionary = {}
+
 
 func _ready() -> void:
 	EventBus.run_ended.connect(_on_run_ended)
@@ -26,11 +34,15 @@ func get_current_run_number() -> int:
 
 ## Recorre res://resources/definitions/meta_bonus/*.tres, filtra por los bonus_id desbloqueados
 ## y suma amount. El amount nunca se copia al save: siempre se resuelve contra la definición .tres.
+## Épica E (sección 8.4): suma además todos los bonus de monto explícito ya registrados vía
+## unlock_money_bonus_with_explicit_amount(), que no tienen definición .tres de catálogo.
 func get_total_starting_money_bonus() -> int:
 	var total: int = 0
 	for bonus in _load_all_money_bonus_definitions():
 		if is_money_bonus_unlocked(bonus.bonus_id):
 			total += bonus.amount
+	for amount in _explicit_money_bonuses.values():
+		total += amount
 	return total
 
 
@@ -42,6 +54,16 @@ func unlock_money_bonus(bonus_id: StringName) -> void:
 
 func is_money_bonus_unlocked(bonus_id: StringName) -> bool:
 	return _unlocked_money_bonus_ids.has(bonus_id)
+
+
+## Épica E (sección 8.4) — variante de unlock_money_bonus() para bonus generados en runtime (ej.
+## decisiones inter-run) que no tienen un MetaMoneyBonus.tres de catálogo: guarda el par
+## (bonus_id, amount) directamente, en vez de resolver amount contra un .tres en tiempo de consulta.
+## Igual de idempotente por bonus_id (llamar dos veces con el mismo bonus_id no duplica el monto).
+func unlock_money_bonus_with_explicit_amount(bonus_id: StringName, amount: int) -> void:
+	if _explicit_money_bonuses.has(bonus_id):
+		return
+	_explicit_money_bonuses[bonus_id] = amount
 
 
 ## Llamado al cerrar una run (victoria o derrota).
@@ -91,6 +113,16 @@ func mark_final_ending_triggered(at_run_number: int) -> void:
 	_final_ending_triggered_at_run_number = at_run_number
 
 
+## Épica E (sección 6.1) — flag idempotente de tutorial de primera apuesta completado.
+func has_completed_first_bet_tutorial() -> bool:
+	return _first_bet_tutorial_completed
+
+
+## Idempotente: marcarlo completado dos veces no tiene efecto adicional.
+func mark_first_bet_tutorial_completed() -> void:
+	_first_bet_tutorial_completed = true
+
+
 func save() -> void:
 	var save_data := MetaProgressSaveData.new()
 	save_data.current_run_number = _current_run_number
@@ -98,6 +130,14 @@ func save() -> void:
 	save_data.victory_category_states = get_all_victory_category_states()
 	save_data.final_ending_triggered = _final_ending_triggered
 	save_data.final_ending_triggered_at_run_number = _final_ending_triggered_at_run_number
+	save_data.first_bet_tutorial_completed = _first_bet_tutorial_completed
+	var explicit_ids: Array[StringName] = []
+	var explicit_amounts: Array[int] = []
+	for bonus_id in _explicit_money_bonuses.keys():
+		explicit_ids.append(bonus_id)
+		explicit_amounts.append(_explicit_money_bonuses[bonus_id])
+	save_data.explicit_money_bonus_ids = explicit_ids
+	save_data.explicit_money_bonus_amounts = explicit_amounts
 	var error := ResourceSaver.save(save_data, SAVE_PATH)
 	if error != OK:
 		push_error("MetaProgress.save() failed with error code %d" % error)
@@ -118,6 +158,10 @@ func load_or_create() -> void:
 				_victory_category_states[state.category_id] = state
 			_final_ending_triggered = save_data.final_ending_triggered
 			_final_ending_triggered_at_run_number = save_data.final_ending_triggered_at_run_number
+			_first_bet_tutorial_completed = save_data.first_bet_tutorial_completed
+			_explicit_money_bonuses = {}
+			for i in range(save_data.explicit_money_bonus_ids.size()):
+				_explicit_money_bonuses[save_data.explicit_money_bonus_ids[i]] = save_data.explicit_money_bonus_amounts[i]
 			return
 	# No existe save previo o el recurso encontrado no es válido: estado inicial nuevo.
 	_current_run_number = 1
@@ -125,6 +169,8 @@ func load_or_create() -> void:
 	_victory_category_states = {}
 	_final_ending_triggered = false
 	_final_ending_triggered_at_run_number = -1
+	_first_bet_tutorial_completed = false
+	_explicit_money_bonuses = {}
 
 
 func _load_all_money_bonus_definitions() -> Array[MetaMoneyBonus]:

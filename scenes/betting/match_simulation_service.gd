@@ -93,6 +93,36 @@ func _record_carded_players(match_id: StringName, state: MatchTickState) -> void
 	_carded_players_by_match[match_id] = carded_players
 
 
+## Añadido por Épica E (contrato fijado en epic-e-pantalla-de-apuestas.md sección 3.2): expone el
+## MatchTickState acumulado de un partido para que la UI de apuestas pueble marcador/estadísticas sin
+## que Épica E necesite conocer active_matches directamente.
+func get_match_tick_state(match_id: StringName) -> MatchTickState:
+	return active_matches.get(match_id, null)
+
+
+## Añadido por Épica E (misma sección que get_match_tick_state): arma el TickCommentaryContext del
+## tick recién resuelto de un partido para que CommentaryPanel (E) invoque CommentaryResolver (D).
+func get_tick_commentary_context(match_id: StringName) -> TickCommentaryContext:
+	var state: MatchTickState = active_matches.get(match_id, null)
+	if state == null:
+		return null
+
+	var home_team: TeamDef = LeagueState.get_team(state.home_team_id)
+	var away_team: TeamDef = LeagueState.get_team(state.away_team_id)
+
+	var context := TickCommentaryContext.new()
+	context.match_id = state.match_id
+	context.tick_index_in_day = state.current_tick_index
+	context.phase = NarrativePhase.get_current_phase()
+	context.is_crazy_moment = false
+	context.events = state.tick_events.duplicate()
+	context.score_home = state.home_goals
+	context.score_away = state.away_goals
+	context.home_team_display_name = home_team.display_name if home_team != null else ""
+	context.away_team_display_name = away_team.display_name if away_team != null else ""
+	return context
+
+
 ## true si todos los partidos del día ya llegaron al minuto 90.
 func is_matchday_finished() -> bool:
 	if active_matches.is_empty():

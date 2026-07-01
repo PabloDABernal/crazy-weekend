@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MarketOptionLabels" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/definitions/market/market_option_labels.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+labels_by_option_key = {
+"home": "Gana Local",
+"draw": "Empate",
+"away": "Gana Visitante",
+"over": "Más de",
+"under": "Menos de"
+}
