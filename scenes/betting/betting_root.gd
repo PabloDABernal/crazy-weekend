@@ -329,38 +329,30 @@ func _refresh_global_continue_state() -> void:
 	_continue_button.disabled = not ready
 
 	if _matches_with_tick_open_this_cycle.is_empty():
-		_global_status_label.text = "Arrancando jornada..."
+		_global_status_label.text = "Esperando inicio de jornada..."
 		return
 
 	if ready:
-		_global_status_label.text = "✓ Todos los partidos apostados — avanza cuando quieras"
+		_global_status_label.text = "✓ Apuesta registrada — puedes continuar o apostar en más partidos"
 	else:
-		var pending_count: int = 0
-		for match_id in _matches_with_tick_open_this_cycle:
-			var panel: MatchPanel = _match_panels.get(match_id, null)
-			if panel != null and not panel.has_bet_this_tick():
-				pending_count += 1
-		if pending_count == 1:
-			_global_status_label.text = "Falta apostar en 1 partido más — revisa las pestañas"
-		else:
-			_global_status_label.text = "Falta apostar en %d partidos — revisa las pestañas" % pending_count
+		_global_status_label.text = "Apuesta en al menos 1 partido para continuar"
 
 
+## Regla de apuesta: basta con 1 apuesta en cualquier partido del tick actual.
+## Apostar en más partidos es opcional y aumenta la exposición/ganancia potencial.
 func _all_matches_satisfied_this_cycle() -> bool:
 	if _matches_with_tick_open_this_cycle.is_empty():
 		return false
 
-	for match_id in _matches_with_tick_open_this_cycle:
-		var panel: MatchPanel = _match_panels.get(match_id, null)
-		if panel == null:
-			continue
-		if not panel.has_bet_this_tick():
-			return false
-
 	if _active_crazy_bet != null and not _crazy_bet_resolved_this_tick:
 		return false
 
-	return true
+	for match_id in _matches_with_tick_open_this_cycle:
+		var panel: MatchPanel = _match_panels.get(match_id, null)
+		if panel != null and panel.has_bet_this_tick():
+			return true
+
+	return false
 
 
 func _on_match_panel_bet_confirmed(match_id: StringName, market_offer: MarketOffer, stake: int, tick_index: int) -> void:
