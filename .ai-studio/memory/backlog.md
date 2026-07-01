@@ -91,6 +91,91 @@ Decisión del Director Creativo: Corners y Resultado Exacto quedan diferidos a p
 
 ---
 
+### Épica D — Simulación de liga y partidos (motor de tick)
+**Qué**: implementar el motor que genera la liga ficticia (20 equipos, atributos internos, calendario de jornadas) y simula cada partido en curso por ticks de 15 minutos, calculando estadísticas, probabilidades por mercado y comentarios textuales, y anunciando cada tick obligatorio de apuesta al resto del sistema. Esta épica es la que materializa formalmente el contrato `BettingTickService` que `_arquitectura-base.md` (sección 4) deja fijado como pendiente: nombres de recursos (`BetTickContext`, `MarketOffer`) y señal (`EventBus.bet_tick_opened`) ya están decididos y no se rediseñan aquí, solo se implementan.
+
+**Por qué**: sin esta épica no existe partido que simular ni probabilidad que apostar — es el motor de datos que alimenta tanto la pantalla de apuestas (Épica E) como los mercados que Épica A necesita para detectar tipos de victoria. Es, junto con Épica E, el núcleo de "jugable" que faltaba en el backlog pese a que Épicas A/B/C ya tenían spec técnica completa.
+
+**Criterio de éxito de la épica**: dado un fin de semana de juego, el sistema genera automáticamente la jornada correspondiente (partidos, equipos, jugadores con atributos internos), simula cada partido en ticks de 15 minutos hasta el minuto 90, actualiza estadísticas y probabilidades de los 6 mercados MVP en cada tick, genera 2-3 líneas de comentario textual por tick, y emite `EventBus.bet_tick_opened` con un `BetTickContext` válido (jornada, índice de tick, `MarketOffer` por mercado disponible) en el momento correcto para que Épica B (Momento Crazy) y Épica E (UI) reaccionen sin necesitar ningún cambio de contrato.
+
+**Decisión de alcance (tomada por Coordinator, sin preguntar)**: la generación de liga para el MVP se limita a una generación semi-aleatoria simple al inicio de la campaña (20 equipos, atributos internos básicos: ofensiva/defensiva/forma/factor local; jugadores con media de goles/probabilidad de tarjeta/posición) y su evolución jornada a jornada dentro de la temporada activa. Deliberadamente **fuera de esta épica**: la fase de investigación inter-run que colapsa el rango de probabilidad mostrado (`game-design.md` → "Cómo informan las probabilidades", "con investigación máxima el jugador ve el valor calculado con ±5% de ruido") y el historial completo de temporadas/regeneración de liga en jornada 38. Para el MVP, el jugador siempre ve el rango ancho sin investigación (ej. "entre 40% y 65%") — es una simplificación válida porque el propio documento de diseño define el rango ancho como el estado *base* del sistema (el estado "sin investigación" ya es jugable de por sí, la investigación solo lo refina). Ver Historia D.5 y el hito de roadmap correspondiente para el gap de la fase inter-run completa.
+
+#### Historia D.1 — Generación de liga (20 equipos, atributos internos, calendario de 38 jornadas)
+**Qué**: generar, al inicio de una campaña nueva (o de una temporada nueva tras la jornada 38), 20 equipos ficticios con nombres distorsionados de equipos reales de LaLiga, cada uno con atributos internos (ofensiva, defensiva, forma actual, factor local) y una plantilla de jugadores ficticios (media de goles por partido, probabilidad de tarjeta, posición), con peso hacia una jerarquía reconocible (algunos equipos "estrella"). Genera también el calendario de 38 jornadas (~10 partidos por jornada, todos los equipos juegan cada jornada).
+**Por qué**: es la base de datos que alimenta toda probabilidad de mercado; sin esto no hay partido que simular.
+**Criterio de éxito**: cada campaña nueva produce 20 equipos con atributos distintos entre sí (no todos iguales), un calendario válido de 38 jornadas donde cada equipo juega exactamente una vez por jornada, y la jerarquía de "equipos estrella" es perceptible en los atributos generados (no es una distribución uniforme).
+**Nota para Architect**: `RunState`/`MetaProgress` ya existen (Épica B) — esta historia decide si la liga vive en un nuevo autoload (`LeagueState`, análogo a `RunState` pero de vida más larga que una run) o en `MetaProgress`; `_arquitectura-base.md` no lo resuelve todavía porque esta épica no existía cuando se escribió, así que Architect tiene libertad aquí siempre que reutilice el mismo autoload de persistencia (no crear un segundo sistema de guardado).
+
+#### Historia D.2 — Standings y estadísticas persistentes por jornada
+**Qué**: tras resolverse todos los partidos de una jornada, actualizar la tabla de posiciones (puntos, goles a favor/en contra, forma últimos 5) y las estadísticas acumuladas por jugador (goles, tarjetas, partidos jugados).
+**Por qué**: es la memoria de la liga que hace que "la liga evoluciona jornada a jornada" (`game-design.md` → "Standings y estadísticas visibles") y la base sobre la que se calculan probabilidades de jornadas futuras.
+**Criterio de éxito**: al terminar una jornada, los standings reflejan correctamente los resultados de esa jornada y persisten para la siguiente; el jugador puede consultar esta información desde la fase inter-run (la pantalla de consulta en sí puede ser una historia de UI menor, a criterio de Architect, pero los datos deben existir y ser correctos desde esta historia).
+**Depende de**: D.1.
+
+#### Historia D.3 — Simulación de partido por ticks de 15 minutos (motor + `BettingTickService`)
+**Qué**: implementar el motor de simulación de un partido en curso: 6 ticks de 15 minutos hasta completar 90 minutos, actualizando en cada tick el marcador, minuto, estadísticas acumuladas (posesión, tiros a puerta, tarjetas, corners, faltas) y probabilidades de los 6 mercados MVP a partir de los atributos de equipo/jugador (D.1) y el estado acumulado del propio partido. Al llegar a cada tick, emite `EventBus.bet_tick_opened(context: BetTickContext)` con `available_markets: Array[MarketOffer]` poblado (incluyendo `confidence` por mercado, campo que Épica B.3 ya depende de que exista). Varios partidos de la misma jornada corren en paralelo; el jugador puede tener apuestas abiertas en varios a la vez.
+**Por qué**: es el corazón del loop principal (`game-design.md` → "Sistema de tiempo semi-pausado") y el que materializa el contrato `BettingTickService` que `_arquitectura-base.md` deja pendiente explícitamente en su sección 4.
+**Criterio de éxito**: un partido avanza correctamente por sus 6 ticks hasta el minuto 90 con un resultado final coherente con los atributos de los equipos (no puramente aleatorio, ponderado por ofensiva/defensiva/forma/factor local); en cada tick se emite `bet_tick_opened` con un `BetTickContext` completo y válido según el contrato ya fijado (mismos nombres de campo, mismo tipo `MarketOffer`); las probabilidades mostradas se actualizan de forma consistente con lo ocurrido en los ticks previos del mismo partido (un equipo que va ganando 2-0 no puede mostrar probabilidad de 2.5 goles totales sin subir, por ejemplo).
+**Depende de**: D.1. Es la historia técnicamente más central de la épica — Épica B (B.2, B.3, B.4) y Épica E dependen todas de que esta historia cumpla exactamente el contrato ya escrito en `_arquitectura-base.md` sección 4.
+**Nota para Architect**: el contrato (`BetTickContext`, `MarketOffer`, señal `bet_tick_opened`) ya está fijado — no rediseñar, solo implementar. Confirmar con B.3 cómo se calcula `confidence` (0.0-1.0) por mercado, ya que hoy esa spec asume el campo pero no fija su fórmula.
+
+#### Historia D.4 — Comentarios textuales generados por tick
+**Qué**: generar 2-3 líneas de comentario textual por tick de partido, coherentes con lo ocurrido en ese tick (gol, tarjeta, tiro fallado, tramo sin eventos), con el tono correspondiente a la fase narrativa activa (deportivo estándar en fase 1, hasta surrealista/directo al jugador en fase 3-4, según `game-design.md` → "Arco narrativo").
+**Por qué**: es "el canal narrativo principal" del juego según el propio documento de diseño — sin esto el partido es solo números, y se pierde el vehículo principal de tono y deterioro narrativo del núcleo de juego.
+**Criterio de éxito**: cada tick simulado produce 2-3 líneas de comentario relacionadas con los eventos de ese tick específico (no genéricas); el registro de los comentarios cambia de forma consistente con `NarrativePhase.get_current_phase()`; durante un Momento Crazy, el comentario cambia de registro para dirigirse directamente al jugador (ya especificado en Épica B.3, este comentario es el mismo canal, no un sistema aparte).
+**Depende de**: D.3.
+**Nota para Architect**: el contenido específico de los comentarios (banco de frases, plantillas) es contenido narrativo — puede requerir coordinación con Game Designer para el set de textos por fase, pero la lógica de selección/inserción de comentarios sí es alcance de esta historia.
+
+#### Historia D.5 — Probabilidades en rango (sin investigación) por mercado
+**Qué**: exponer, para cada `MarketOffer` de cada mercado MVP, un rango visible pero impreciso de probabilidad (`displayed_probability_min`/`displayed_probability_max`, campos ya definidos en `_arquitectura-base.md` sección 4.4) derivado del valor real interno más un margen de casa no constante (varía por mercado y puede subir en runs avanzadas).
+**Por qué**: es el mecanismo base de opacidad informada del pilar de diseño "ilusión de control" — el jugador ve suficiente para decidir, nunca el número exacto.
+**Criterio de éxito**: cada mercado ofertado en un tick muestra un rango (no un valor único) cuyo ancho es consistente entre partidos similares; el margen de casa aplicado nunca queda expuesto al jugador como tal (el jugador solo ve el rango ya "cocinado"). El colapso de este rango vía investigación inter-run queda **fuera de esta historia y de este MVP** — ver gap señalado en `roadmap.md`.
+**Depende de**: D.3.
+
+---
+
+### Épica E — Pantalla de apuestas e interacción de tick
+**Qué**: implementar la interfaz jugable de apuestas (estilo casa de apuestas fría, tipo bwin), el flujo de resolución de cada tick obligatorio, el flujo mínimo de inicio (pantalla "APOSTAR", intro narrativa, tutorial de primera apuesta integrado), y el cierre de run (pantalla de domingo con victoria/derrota, conectando con `RunState`/`EventBus` ya definidos en Épica B). Es la capa de UI que consume las señales que Épica D (motor) y Épica B (economía) ya emiten — no rediseña ningún contrato, solo lo consume.
+
+**Por qué**: es la superficie con la que el jugador realmente interactúa en cada run; junto con Épica D, cierra el gap identificado por el Director del Estudio entre "hay spec técnica de A/B/C" y "el juego es jugable de punta a punta". Sin esta épica, Épicas A/B/C/D existen como lógica sin forma de que el jugador las toque.
+
+**Criterio de éxito de la épica**: un jugador nuevo puede abrir el juego, ver la intro narrativa, llegar a la pantalla de apuestas 15 minutos antes del primer partido del viernes, completar el tutorial integrado de su primera apuesta, apostar en cada tick obligatorio en al menos uno de los 6 mercados MVP durante los partidos en curso, ver el panel de partido y los comentarios actualizarse tick a tick, reaccionar a un Momento Crazy cuando ocurre, y llegar al domingo (o a la pantalla de derrota "Ya es lunes" si su saldo llega a 0$ antes), cerrando la run correctamente vía `RunState.end_run()` / `EventBus.run_ended`.
+
+**Decisión de alcance (tomada por Coordinator, sin preguntar)**: la fase inter-run completa (lunes-jueves, decisiones conversacionales, draft de amuletos, tienda, investigación) **no existe todavía como épica** y no es indispensable para que el MVP sea "jugable" en el sentido mínimo de este pedido — se puede mockear con dinero base fijo (500$ + bonus de meta-progresión ya definido en B.1, que puede quedar en 0 si todavía no hay forma de desbloquear bonus) entre el cierre de una run y el inicio de la siguiente, sin pantalla intermedia jugable. Esto es un gap real, no un descuido: queda señalado explícitamente en `roadmap.md` como próxima iteración. Sin fase inter-run, el jugador puede jugar runs sueltas en bucle (viernes a domingo, gana o pierde, vuelve a empezar) pero no tiene todavía draft de amuletos, tienda, ni investigación — el sistema de amuletos completo (`game-design.md` → "Sistema de amuletos") también queda fuera de esta épica y de este MVP por la misma razón: depende del draft inter-run/in-run que no existe aún.
+
+#### Historia E.1 — Pantalla de inicio, intro narrativa y aterrizaje en la jornada del viernes
+**Qué**: implementar la pantalla de inicio con el botón "APOSTAR" (nunca "Jugar"), la introducción narrativa en pantalla negra con el texto ya definido en `game-design.md` → "Primer minuto y onboarding", y el aterrizaje del jugador en la pantalla de apuestas 15 minutos antes del primer partido del viernes (partidos listados, hora actual visible, apuestas ya disponibles).
+**Por qué**: es el primer contacto del jugador con el juego; fija el tono frío/funcional desde el segundo uno, tal como especifica el documento de diseño.
+**Criterio de éxito**: desde el arranque del juego, un jugador nuevo llega a la pantalla de apuestas del viernes pasando por la pantalla de inicio y la intro narrativa (texto exacto ya escrito en `game-design.md`, sin necesidad de redacción adicional); la hora mostrada corresponde a 15 minutos antes del kickoff del primer partido de la jornada.
+**Depende de**: D.1 (necesita que exista al menos una jornada generada).
+
+#### Historia E.2 — Tutorial mínimo integrado de primera apuesta
+**Qué**: en la primera run del jugador, integrar un tutorial no bloqueante en la propia pantalla de apuestas que explica cómo leer probabilidades y qué se puede apostar, y no se considera completo hasta que el jugador realiza su primera apuesta real (monto fijo pequeño, ~50$, ya definido en el documento).
+**Por qué**: es el único tutorial del juego; sin él, un jugador nuevo se enfrenta a una interfaz deliberadamente fría (estilo bwin) sin ningún andamiaje.
+**Criterio de éxito**: el tutorial aparece únicamente en la primera run de una campaña nueva, no bloquea la pantalla con un modal separado (vive integrado en la UI de apuestas normal), y se marca completo en el instante en que el jugador confirma su primera apuesta de ~50$. No vuelve a aparecer en runs posteriores.
+**Depende de**: E.1, E.3.
+
+#### Historia E.3 — Panel de partido y resolución de tick obligatorio (UI)
+**Qué**: implementar la UI que consume `EventBus.bet_tick_opened`: panel de partido (marcador, minuto, estadísticas, probabilidades en rango, comentarios) para el partido enfocado, selector de partido cuando hay varios en paralelo, y el flujo de apuesta obligatoria por tick (el jugador no puede avanzar al siguiente tick sin apostar al menos el stake mínimo vigente, incluyendo el caso de all-in forzoso y Momento Crazy ya definidos en Épica B).
+**Por qué**: es la interfaz central del loop de juego — el punto donde el motor (Épica D) y la economía (Épica B) se vuelven interacción real para el jugador.
+**Criterio de éxito**: en cada tick, el jugador ve el panel actualizado del partido enfocado, puede cambiar de foco entre partidos en paralelo sin perder apuestas ya abiertas en otros, no puede avanzar de tick sin cumplir la apuesta obligatoria vigente (mínimo, all-in, o Crazy Bet según corresponda), y la UI refleja visualmente un Momento Crazy cuando `EventBus.crazy_moment_triggered` se dispara (sello "CRAZY", cambio de color, mercados restringidos deshabilitados en pantalla).
+**Depende de**: D.3, D.4, D.5, B.2, B.3 (consume sus señales/contratos, no los rediseña).
+
+#### Historia E.4 — Interfaz de los 6 mercados MVP (1X2, goles 2.5, primer goleador, ambos marcan, tarjetas, faltas)
+**Qué**: implementar la UI de apuesta específica de cada uno de los 6 mercados del MVP: selección de opción, monto de stake, confirmación, y reflejo en la lista de "apuestas pendientes" siempre visible junto al saldo.
+**Por qué**: son los mercados ya definidos como MVP en `game-design.md` (incluye faltas, que Épica A ya asume disponible en A.5); sin su interfaz de apuesta, ninguna de las historias de Épica A puede dispararse en la práctica.
+**Criterio de éxito**: el jugador puede apostar en cualquiera de los 6 mercados ofertados en un tick, ve su saldo y sus apuestas pendientes actualizarse en tiempo real, y al resolverse un tick, las apuestas pendientes de ese tick pasan a ganadas/perdidas reflejándose en el saldo vía `RunState.set_money()` (nunca mutando el saldo por otra vía, según regla ya fijada en `_arquitectura-base.md`).
+**Depende de**: E.3.
+
+#### Historia E.5 — Cierre de run: victoria (domingo, dinero > 0) y derrota ("Ya es lunes")
+**Qué**: implementar la pantalla de cierre de run en ambos desenlaces: llegar al domingo con dinero > 0 (victoria de run) dispara resumen de fin de semana; llegar a 0$ en cualquier tick obligatorio dispara inmediatamente la pantalla "Ya es lunes" sin eventos de domingo. Ambos casos llaman a `RunState.end_run(result: RunResult)` y reaccionan a `EventBus.run_ended`.
+**Por qué**: cierra el loop principal de punta a punta (`game-design.md` → "Loop principal", ambas ramas de salida) y es el punto de conexión formal con Épica B (`RunState`/`RunResult`, ya definidos, no se rediseñan aquí).
+**Criterio de éxito**: una run que llega al domingo con saldo positivo dispara la pantalla de victoria de run con el resumen correspondiente; una run que llega a 0$ antes del domingo dispara inmediatamente (mismo tick, sin tick de gracia) la pantalla "Ya es lunes"; en ambos casos `RunState.end_run()` se invoca con el `RunResult` correcto (`Outcome.WON` o `Outcome.LOST_BANKRUPT`, `final_money`, `peak_money`, `run_number`) y el juego queda listo para iniciar una nueva run (con dinero mockeado según la decisión de alcance de esta épica, hasta que exista fase inter-run real).
+**Depende de**: E.3, B.2 (muerte de run), y el contrato `RunResult`/`EventBus.run_ended` ya fijado en `_arquitectura-base.md` sección 3.1.
+**Nota para Architect**: esta historia es también la que decide, de forma mínima, qué pantalla ve el jugador entre el cierre de una run y el inicio de la siguiente mientras no exista fase inter-run (E.5 puede resolver esto con una pantalla simple de "resumen y continuar", no requiere diseño de la fase inter-run completa).
+
+---
+
 ### Épica B — Economía de run
 **Qué**: implementar las reglas económicas base de una run (dinero inicial, escalado por meta-progresión, stake mínimo, all-in forzoso, muerte de run por saldo cero) y la mecánica de Momento Crazy con su escalada de cadencia por fase narrativa.
 
@@ -151,7 +236,7 @@ Decisión del Director Creativo: Corners y Resultado Exacto quedan diferidos a p
 
 ## Historias
 
-(Ver historias A.1–A.9 (MVP), A.6–A.7 (post-MVP, sub-sección propia), B.1–B.4, C.1–C.2 dentro de cada épica arriba. Se listan agrupadas por épica para mantener contexto; cuando una historia pase a Architect, puede moverse a un estado "en diseño" si el equipo prefiere trackear eso aquí.)
+(Ver historias A.1–A.9 (MVP), A.6–A.7 (post-MVP, sub-sección propia), B.1–B.4, C.1–C.2, D.1–D.5, E.1–E.5 dentro de cada épica arriba. Se listan agrupadas por épica para mantener contexto; cuando una historia pase a Architect, puede moverse a un estado "en diseño" si el equipo prefiere trackear eso aquí.)
 
 ---
 
