@@ -5,7 +5,7 @@ class_name ExpedienteCorruptionController extends Node
 ## construida, sin conocer el contenido de ninguna categoría.
 ## Ver .ai-studio/specs/epic-c-tu-expediente.md sección 3.2/3.3.
 
-## Debe matchear el category_id del .tres res://resources/definitions/victory_flavor/phantom_slot_flavor.tres
+## Debe matchear el category_id del .tres res://resources/definitions/victory_flavor/phantom_unnamed.tres
 ## (CategorySlot._load_flavor() construye el path por convención de nombre de archivo == category_id).
 const PHANTOM_CATEGORY_ID: StringName = &"phantom_unnamed"
 

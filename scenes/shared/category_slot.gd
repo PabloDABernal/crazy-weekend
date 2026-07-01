@@ -130,8 +130,9 @@ func refresh() -> void:
 ## diccionario milestone_reached del VictoryCategoryState combinado, no de un estado propio (ver
 ## setup_sub_milestone()). VictoryCategoryState no guarda fecha/run por sub-hito individual — en su
 ## ausencia, si el slot combinado completo ya está unlocked se reutiliza su fecha/run como aproximación;
-## si el sub-hito está reached pero el slot combinado aún no (otro sub-hito lo resolvió primero), se
-## muestra sin fecha/run (no hay dato más preciso disponible en Épica A). Ver nota en reporte final.
+## si el sub-hito está reached pero el slot combinado aún no (otro sub-hito lo resolvió primero),
+## unlocked_at_run_number sigue en su sentinel (-1) y _populate_unlocked_state()/_resolve_flavor_template()
+## muestran un fallback ("Fecha no registrada" / "?") en vez de interpolar el sentinel crudo.
 func _refresh_sub_milestone() -> void:
 	var combined_state: VictoryCategoryState = MetaProgress.get_victory_category_state(ECONOMIC_MILESTONE_SLOT_CATEGORY_ID)
 	var reached: bool = combined_state.milestone_reached.get(_sub_milestone_threshold, false)
@@ -156,9 +157,9 @@ func play_unlock_animation() -> void:
 
 
 ## Activa/desactiva el overlay de anotación manuscrita (fase 3+, C.2). No cambia SlotState.
-func set_manuscript_overlay_visible(is_visible: bool, annotation_text: String = "") -> void:
-	_manuscript_overlay.visible = is_visible
-	if is_visible:
+func set_manuscript_overlay_visible(overlay_visible: bool, annotation_text: String = "") -> void:
+	_manuscript_overlay.visible = overlay_visible
+	if overlay_visible:
 		_handwritten_annotation_label.text = annotation_text
 
 
@@ -188,14 +189,26 @@ func _populate_unlocked_state(category_state: VictoryCategoryState) -> void:
 		return
 	_display_name_label.text = _flavor.display_name
 	_criteria_label.text = _flavor.unlocked_criteria_text
-	_achievement_date_label.text = "Run %d — %s" % [category_state.unlocked_at_run_number, category_state.unlocked_at_date]
+	# category_state.unlocked_at_run_number == -1 (sentinel, ver victory_category_state.gd) ocurre en
+	# sub-casillas de hito económico (SUB_MILESTONE) cuando este sub-hito ya fue reached pero el slot
+	# combinado como conjunto aún no está unlocked (otro sub-hito distinto lo resolverá primero) — no
+	# hay fecha/run individual por sub-hito en Épica A. Se muestra un fallback en vez de interpolar el
+	# sentinel ("Run -1 — ").
+	if category_state.unlocked_at_run_number == -1:
+		_achievement_date_label.text = "Fecha no registrada"
+	else:
+		_achievement_date_label.text = "Run %d — %s" % [category_state.unlocked_at_run_number, category_state.unlocked_at_date]
 	_flavor_text_label.text = _resolve_flavor_template(_flavor.unlocked_flavor_text_template, category_state)
 
 
 func _resolve_flavor_template(template: String, category_state: VictoryCategoryState) -> String:
+	# Mismo caso de sentinel que _populate_unlocked_state(): sin fecha/run individual disponible,
+	# no se interpola el sentinel crudo (-1 / "") en el flavor text.
+	var fecha_text: String = category_state.unlocked_at_date if category_state.unlocked_at_run_number != -1 else "fecha no registrada"
+	var run_text: String = str(category_state.unlocked_at_run_number) if category_state.unlocked_at_run_number != -1 else "?"
 	var resolved: String = template
-	resolved = resolved.replace("{fecha}", category_state.unlocked_at_date)
-	resolved = resolved.replace("{run}", str(category_state.unlocked_at_run_number))
+	resolved = resolved.replace("{fecha}", fecha_text)
+	resolved = resolved.replace("{run}", run_text)
 	return resolved
 
 
