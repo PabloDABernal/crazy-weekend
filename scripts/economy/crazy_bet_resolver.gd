@@ -13,8 +13,10 @@ static func roll_stake_percentage(phase: NarrativePhase.Phase, rng: RandomNumber
 
 	var roll: float = rng.randf() * float(total_weight)
 	var cumulative: float = 0.0
-	# Orden fijo y determinista de recorrido, independiente del orden de inserción del Dictionary.
-	var ordered_percentages: Array[int] = [50, 70, 100]
+	# Orden fijo y determinista de recorrido, derivado (no duplicado) de las keys de la tabla de
+	# pesos de EconomyRules, y ordenado explícitamente para no depender del orden de inserción del Dictionary.
+	var ordered_percentages: Array = weights.keys()
+	ordered_percentages.sort()
 	for percentage in ordered_percentages:
 		cumulative += float(weights[percentage])
 		if roll < cumulative:
@@ -36,6 +38,12 @@ static func compute_forced_amount(current_money: int, percentage: CrazyBetContex
 ## al menos 1 mercado disponible; si excluir todos los empatados deja 0 mercados, se excluye solo
 ## uno de ellos (elegido por rng) para garantizar CRAZY_BET_MIN_ALLOWED_MARKETS.
 static func select_restricted_markets(available: Array[MarketOffer], rng: RandomNumberGenerator) -> Dictionary:
+	# Precondición: siempre hay al menos un mercado disponible en un tick (el sistema de partidos,
+	# fuera de alcance de Épica B, garantiza esto). Sin al menos un mercado no hay tick de apuesta
+	# que ofrecer, y esta función no tiene forma válida de garantizar CRAZY_BET_MIN_ALLOWED_MARKETS
+	# a partir de una lista vacía.
+	assert(not available.is_empty(), "select_restricted_markets requiere al menos un MarketOffer disponible")
+
 	var highest_confidence: float = -1.0
 	for market in available:
 		if market.confidence > highest_confidence:

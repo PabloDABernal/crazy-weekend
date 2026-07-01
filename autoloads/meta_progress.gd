@@ -11,6 +11,10 @@ var _current_run_number: int = 1
 var _unlocked_money_bonus_ids: Array[StringName] = []
 
 
+func _ready() -> void:
+	EventBus.run_ended.connect(_on_run_ended)
+
+
 func get_current_run_number() -> int:
 	return _current_run_number
 
@@ -38,6 +42,13 @@ func is_money_bonus_unlocked(bonus_id: StringName) -> bool:
 ## Llamado al cerrar una run (victoria o derrota).
 func advance_run_number() -> void:
 	_current_run_number += 1
+
+
+## Escucha EventBus.run_ended para avanzar el contador de runs, en vez de que RunState llame
+## directamente a MetaProgress (los autoloads de estado no se mutan entre sí, solo se leen; ver
+## _arquitectura-base.md sección 2 y diagrama Mermaid).
+func _on_run_ended(_result: RunResult) -> void:
+	advance_run_number()
 
 
 func save() -> void:

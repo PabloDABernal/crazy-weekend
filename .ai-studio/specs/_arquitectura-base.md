@@ -158,7 +158,7 @@ var current_tick_index: int          # índice global de tick dentro de la jorna
 var peak_money_this_run: int         # máximo histórico alcanzado en la run, se actualiza en cada set_money
 
 func start_new_run() -> void          # calcula dinero inicial (ver B.1) y emite run_started
-func set_money(new_amount: int, reason: String) -> void  # única vía de mutar dinero; emite money_changed, actualiza peak_money_this_run, evalúa muerte de run (B.2)
+func set_money(new_amount: int, reason: String) -> void  # única vía de mutar dinero; emite money_changed, actualiza peak_money_this_run
 func get_money() -> int
 func end_run(result: RunResult) -> void
 ```
@@ -167,6 +167,14 @@ Regla de diseño importante: **ningún otro script muta `current_money` directam
 apuestas llama a `RunState.set_money(...)`. Esto es lo que permite que B.2 (muerte por saldo cero) y A.8
 (pico de dinero) se evalúen en un único punto sin duplicar la validación en cada lugar que resuelve una
 apuesta.
+
+Precisión sobre B.2 (muerte de run): `set_money()` **no** evalúa la muerte de run en el instante en que
+el dinero llega a 0 — solo actualiza `current_money`/`peak_money_this_run` y emite `money_changed`. La
+evaluación de muerte de run ocurre al **abrir el siguiente tick obligatorio** (`bet_tick_opened`), coherente
+con el criterio de B.2 de "no hay tick de gracia": si `current_money == 0` al llegar ese tick, la run
+termina ahí, sin mostrar siquiera la pantalla de apuesta (ver spec de Épica B, sección B.2, diagrama de
+secuencia). `set_money()` deja el saldo en un estado coherente para que esa comprobación, hecha en un único
+punto (el handler de `bet_tick_opened`), sea siempre correcta.
 
 ### 2.5 `EconomyRules` (autoload, `res://autoloads/economy_rules.gd`)
 

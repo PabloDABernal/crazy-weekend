@@ -38,8 +38,9 @@ func start_new_run() -> void:
 	EventBus.run_started.emit(current_money, run_number)
 
 
-## Única vía de mutar dinero. Emite money_changed, actualiza peak_money_this_run y evalúa muerte de
-## run (B.2) para que el próximo tick abierto detecte el saldo real.
+## Única vía de mutar dinero. Emite money_changed y actualiza peak_money_this_run. No evalúa muerte
+## de run aquí: esa comprobación (B.2) ocurre al abrir el siguiente tick obligatorio, en
+## _on_bet_tick_opened, coherente con "no hay tick de gracia".
 func set_money(new_amount: int, reason: String) -> void:
 	var delta: int = new_amount - current_money
 	current_money = new_amount
@@ -55,7 +56,6 @@ func get_money() -> int:
 func end_run(result: RunResult) -> void:
 	_run_ended = true
 	EventBus.run_ended.emit(result)
-	MetaProgress.advance_run_number()
 
 
 ## Orquestación de B.2/B.3/B.4 en cada tick obligatorio de apuesta.
