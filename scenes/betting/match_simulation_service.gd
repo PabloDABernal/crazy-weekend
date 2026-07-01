@@ -54,6 +54,27 @@ func start_matchday(matchday: MatchdayFixture, day: BettingDay.Day) -> void:
 		)
 
 
+## Emite bet_tick_opened con el estado inicial (min 0, sin simular) para que el jugador pueda
+## apostar pre-partido antes del primer advance_tick(). No emite bet_tick_resolved porque no hay
+## tick previo que resolver.
+func open_initial_tick() -> void:
+	var market_definitions: Array[MarketDef] = MarketCatalog.get_all_market_definitions()
+
+	for match_id in active_matches.keys():
+		var state: MatchTickState = active_matches[match_id]
+		var home_team: TeamDef = LeagueState.get_team(state.home_team_id)
+		var away_team: TeamDef = LeagueState.get_team(state.away_team_id)
+
+		var available_markets: Array[MarketOffer] = _build_market_offers(market_definitions, state, home_team, away_team)
+
+		var context := BetTickContext.new()
+		context.day = _current_day
+		context.tick_index_in_day = 0
+		context.available_markets = available_markets
+
+		EventBus.bet_tick_opened.emit(context)
+
+
 ## Avanza manualmente al siguiente tick de todos los partidos en curso de este día.
 func advance_tick() -> void:
 	var market_definitions: Array[MarketDef] = MarketCatalog.get_all_market_definitions()

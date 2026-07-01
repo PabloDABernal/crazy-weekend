@@ -20,14 +20,12 @@ const MARKET_WIDGET_NODE_NAMES: Dictionary = {
 
 signal bet_confirmed(match_id: StringName, market_offer: MarketOffer, stake: int, tick_index: int)
 signal tick_bet_requirement_satisfied(match_id: StringName)
-signal advance_tick_requested()
 
 @onready var _scoreboard_panel: ScoreboardPanel = $VBox/ScoreboardPanel
 @onready var _stats_panel: StatsPanel = $VBox/StatsPanel
 @onready var _commentary_panel: CommentaryPanel = $VBox/CommentaryPanel
 @onready var _markets_container: Container = $VBox/MarketsScroll/MarketsContainer
 @onready var _tick_status_label: Label = $VBox/TickStatusLabel
-@onready var _advance_tick_button: Button = $VBox/AdvanceTickButton
 
 var match_id: StringName = &""
 var _current_tick_index: int = 0
@@ -38,7 +36,6 @@ var _phrase_bank: CommentaryPhraseBank = null
 
 
 func _ready() -> void:
-	_advance_tick_button.pressed.connect(_on_advance_tick_pressed)
 	for market_id in MARKET_WIDGET_NODE_NAMES.keys():
 		var node_name: String = MARKET_WIDGET_NODE_NAMES[market_id]
 		var widget: MarketWidget = _markets_container.get_node_or_null(NodePath(node_name))
@@ -81,8 +78,7 @@ func on_tick_opened(context: BetTickContext, match_state: MatchTickState, home_t
 		apply_crazy_moment_restriction(_active_crazy_bet)
 
 	_has_bet_this_tick = false
-	_advance_tick_button.disabled = true
-	_tick_status_label.text = "⬇ Apuesta algo para continuar"
+	_tick_status_label.text = "⬇ Apuesta algo en este partido"
 
 
 ## Aplica la restricción de mercados/stake forzoso del Momento Crazy vigente a todos los MarketWidget.
@@ -151,8 +147,7 @@ func _on_market_widget_bet_confirmed(market_id: StringName, option_key: StringNa
 	bet_confirmed.emit(match_id, market_offer, stake, _current_tick_index)
 
 	_has_bet_this_tick = true
-	_advance_tick_button.disabled = false
-	_tick_status_label.text = "✓ Apuesta registrada — puedes continuar"
+	_tick_status_label.text = "✓ Apostado"
 	tick_bet_requirement_satisfied.emit(match_id)
 
 
@@ -160,5 +155,3 @@ func _find_offer_for_option(widget: MarketWidget, option_key: StringName) -> Mar
 	return widget.get_offer_for_option(option_key)
 
 
-func _on_advance_tick_pressed() -> void:
-	advance_tick_requested.emit()

@@ -67,8 +67,25 @@ offset_bottom = 36.0
 layout_mode = 0
 offset_top = 104.0
 offset_right = 1280.0
-offset_bottom = 720.0
+offset_bottom = 660.0
 clip_contents = true
+
+[node name="GlobalBottomBar" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_top = 664.0
+offset_right = 1280.0
+offset_bottom = 720.0
+
+[node name="GlobalStatusLabel" type="Label" parent="GlobalBottomBar"]
+layout_mode = 2
+horizontal_alignment = 1
+text = ""
+
+[node name="ContinueButton" type="Button" parent="GlobalBottomBar"]
+layout_mode = 2
+size_flags_vertical = 3
+disabled = true
+text = "Continuar →"
 
 [node name="CrazyMomentOverlay" parent="." instance=ExtResource("6")]
 

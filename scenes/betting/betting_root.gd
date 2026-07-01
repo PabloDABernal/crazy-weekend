@@ -14,6 +14,8 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _top_bar: TopBar = $TopBar
 @onready var _match_selector: MatchSelector = $MatchSelector
 @onready var _match_panel_container: Control = $MatchPanelContainer
+@onready var _global_status_label: Label = $GlobalBottomBar/GlobalStatusLabel
+@onready var _continue_button: Button = $GlobalBottomBar/ContinueButton
 @onready var _crazy_moment_overlay: CrazyMomentOverlay = $CrazyMomentOverlay
 @onready var _tutorial_overlay: TutorialOverlay = $TutorialOverlay
 @onready var _run_end_screen: RunEndScreen = $RunEndScreen
@@ -33,6 +35,8 @@ var _landing_timer: Timer = null
 func _ready() -> void:
 	_run_end_screen.continue_pressed.connect(_on_run_end_continue_pressed)
 	_match_selector.match_focus_requested.connect(_on_match_selector_focus_requested)
+	_continue_button.pressed.connect(request_advance_tick)
+	_refresh_global_continue_state()
 
 	EventBus.bet_tick_resolved.connect(_on_bet_tick_resolved)
 	EventBus.bet_tick_opened.connect(_on_bet_tick_opened)
@@ -75,7 +79,7 @@ func _on_landing_timer_tick() -> void:
 		_landing_timer.queue_free()
 		_landing_timer = null
 		_kickoff_started = true
-		_match_simulation_service.advance_tick()
+		_match_simulation_service.open_initial_tick()
 
 
 func _update_hour_display() -> void:
@@ -155,7 +159,6 @@ func _create_match_panel(match_fixture: MatchFixture) -> void:
 	panel.visible = false
 	panel.bet_confirmed.connect(_on_match_panel_bet_confirmed)
 	panel.tick_bet_requirement_satisfied.connect(_on_match_panel_tick_bet_requirement_satisfied)
-	panel.advance_tick_requested.connect(_on_match_panel_advance_tick_requested)
 	_match_panels[match_fixture.match_id] = panel
 
 	var home_team: TeamDef = LeagueState.get_team(match_fixture.home_team_id)
@@ -230,6 +233,7 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 
 	panel.on_tick_opened(context, match_state, home_team, away_team, commentary_context)
 	_update_hour_display()
+	_refresh_global_continue_state()
 
 
 ## Delega a CrazyMomentOverlay y notifica a TODOS los MatchPanel activos (el Crazy Bet aplica al tick
@@ -308,9 +312,7 @@ func _on_victory_category_unlocked(category_id: StringName, run_number: int) -> 
 		_categories_unlocked_this_run.append(category_id)
 
 
-## Único punto de entrada para pedir avanzar de tick. Invocado por MatchPanel cuando el jugador
-## confirmó su apuesta obligatoria del tick vigente para TODOS los partidos con tick abierto ese
-## momento global.
+## Único punto de entrada para pedir avanzar de tick.
 func request_advance_tick() -> void:
 	if not _all_matches_satisfied_this_cycle():
 		return
@@ -318,7 +320,30 @@ func request_advance_tick() -> void:
 	_matches_with_tick_open_this_cycle.clear()
 	_crazy_bet_resolved_this_tick = false
 	_match_selector.clear_bet_requirement_marks()
+	_refresh_global_continue_state()
 	_match_simulation_service.advance_tick()
+
+
+func _refresh_global_continue_state() -> void:
+	var ready: bool = _all_matches_satisfied_this_cycle()
+	_continue_button.disabled = not ready
+
+	if _matches_with_tick_open_this_cycle.is_empty():
+		_global_status_label.text = "Arrancando jornada..."
+		return
+
+	if ready:
+		_global_status_label.text = "✓ Todos los partidos apostados — avanza cuando quieras"
+	else:
+		var pending_count: int = 0
+		for match_id in _matches_with_tick_open_this_cycle:
+			var panel: MatchPanel = _match_panels.get(match_id, null)
+			if panel != null and not panel.has_bet_this_tick():
+				pending_count += 1
+		if pending_count == 1:
+			_global_status_label.text = "Falta apostar en 1 partido más — revisa las pestañas"
+		else:
+			_global_status_label.text = "Falta apostar en %d partidos — revisa las pestañas" % pending_count
 
 
 func _all_matches_satisfied_this_cycle() -> bool:
@@ -363,10 +388,7 @@ func _on_match_panel_bet_confirmed(match_id: StringName, market_offer: MarketOff
 ## en OTRO partido, que este ya cumplió su apuesta obligatoria del tick vigente.
 func _on_match_panel_tick_bet_requirement_satisfied(match_id: StringName) -> void:
 	_match_selector.mark_bet_requirement_satisfied(match_id)
-
-
-func _on_match_panel_advance_tick_requested() -> void:
-	request_advance_tick()
+	_refresh_global_continue_state()
 
 
 func _current_matchday_id() -> StringName:
