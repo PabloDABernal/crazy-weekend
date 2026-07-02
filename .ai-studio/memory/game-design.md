@@ -157,7 +157,7 @@ Decisión de diseño (feedback de playtest, run 1): los partidos de una jornada 
 
 **Comportamiento requerido:**
 - Cada partido de una jornada tiene una **hora de kickoff propia**, distribuida a lo largo de una franja horaria (ej. viernes 16:45, sábado 17:00 / 18:30 / 20:00, etc.). Las horas concretas son placeholder de diseño; lo que se fija es el *patrón*.
-- **Como máximo 2 partidos solapados (en curso) a la vez.** Cuando dos partidos ya están corriendo, el siguiente no arranca hasta que uno de los dos avance lo suficiente / termine, manteniendo el techo de 2 simultáneos.
+- **No existe un techo fijo de partidos solapados.** Lo habitual es el patrón escalonado, con pocas partidos vivos a la vez (1-2), pero el sistema debe soportar **jornadas especiales** (ej. la última jornada de liga, un "Super Sunday") donde varios partidos, o todos, comparten la misma hora de kickoff y corren en paralelo de forma deliberada, como excepción de ritmo dentro del mismo calendario.
 - El reloj de la interfaz (la "hora actual" ya prevista en "Presentación") es el que gobierna qué partidos ya empezaron, cuáles están por empezar y cuáles terminaron. El tick obligatorio de apuesta se refiere al/los partido(s) actualmente en curso, no a todos los de la jornada.
 - Un partido que aún no ha empezado ya acepta apuestas pre-partido (coherente con "el jugador aterriza 15 min antes del primer partido"), pero no genera ticks ni comentarios hasta su kickoff.
 - La sensación buscada: una jornada tiene un *arranque* (pocos partidos), un *pico* (2 solapados, máxima presión de atención) y una *cola* (los últimos partidos, ya de noche). Esto da forma dramática a la jornada en vez de una masa plana de partidos paralelos.
@@ -224,7 +224,7 @@ Problema detectado: al apostar y resolverse la apuesta no hay ningún feedback �
 
 **Comportamiento requerido — resolución:**
 - Cuando una apuesta se resuelve, debe haber un **feedback explícito e inmediato**: si se ganó (cuánto entró al saldo, con el número claro) o si se perdió (cuánto se perdió). El cambio de saldo debe ser legible y atribuible a esa apuesta concreta, no un salto silencioso del balance.
-- La resolución respeta el tono frío/corporativo: un ganado no es una fiesta de confeti, es una confirmación seca del ingreso. Pero **ocurre y se ve** — el silencio actual es el bug de diseño, no la falta de fiesta.
+- A diferencia del resto de la interfaz (deliberadamente fría y funcional en mercados/UI), el momento de resolución de una apuesta es la excepción: la dopamina debe ser **alta y consistente siempre**, en cualquier fase narrativa de la run, sin condicionarla ni degradarla con el tiempo — "esto es Crazy Weekend, el feedback debe ser loco". El silencio actual es el bug de diseño, no la falta de intensidad.
 - En fases narrativas avanzadas, este mismo feedback de resolución es un canal más de deterioro (coherente con "Arco narrativo"): el mensaje de resolución puede empezar a "hablarle" al jugador, igual que los comentarios de partido.
 
 ### Presentación
@@ -514,11 +514,4 @@ Nota para Coordinator: candidata a Épica futura, explícitamente no prioritaria
 
 1. **Riesgo de diversión — ritmo del viernes**: la entrada 15 minutos antes del primer partido puede no ser suficientemente tensa. Alternativa en consideración: mostrar partidos en directo en lugar de sistema de ticks. Requiere prototipo para validar cuál genera más tensión. (Pendiente de prototipo — sin resolver a propósito.)
 
-### Pendientes del playtest run 1 — a confirmar con el Director antes de pasar a Coordinator/Architect
-
-2. **Rango de cuota mínimo/máximo aceptable**: ¿qué cuota mínima y máxima queremos que vea el jugador? (ej. favorito clarísimo ~1.10, resultado exacto ~15-50). Esto fija cuánto "castiga" el margen de casa y cuán jugosos son los mercados de alta cuota. Sin un rango objetivo, Architect no puede calibrar la conversión probabilidad→cuota.
-3. **Alcance del horario escalonado**: ¿aplica a las tres jornadas del fin de semana (viernes, sábado, domingo) o el escalonado rico es solo del sábado/domingo y el viernes es una entrada corta? ¿El techo de "máximo 2 partidos solapados" es fijo o puede subir en runs/fases avanzadas como presión añadida?
-4. **Feedback de resolución — cuánto ruido**: ¿queremos feedback de resolución seco y minimal desde la run 1 (coherente con lo frío), o un punto más de dopamina visible al ganar en fases tempranas que luego se corrompe? Afecta a cuánto "sabe bien" la victoria al principio (pilar de la vision: "las victorias saben bien").
-5. **Estado vivo de la apuesta — cuánta ayuda dar**: mostrar "vas ganando/perdiendo esta apuesta" mientras corre el partido es cómodo pero reduce tensión y roza el pilar "sistema opaco". ¿Lo mostramos siempre, solo con investigación, o de forma deliberadamente ambigua? 
-6. **Jerarquía de equipos — objetivo numérico**: ¿confirmamos una banda objetivo para el favorito claro en casa (ej. victoria local entre 65% y 80%) que sirva de criterio de aceptación para el tuning del generador? Necesario para que QA pueda validar que "la jerarquía se percibe".
-7. **Prioridad relativa**: de las mejoras nuevas (escalonado, payout visible, boleto vivo/feedback, mercados por minuto), ¿cuál es la más urgente para el próximo playtest? El Director describió el loop como "siguiente, siguiente sin feedback" — sugiere que payout visible + feedback de resolución son lo primero, pero confirmar.
+Las preguntas pendientes del playtest run 1 (rango de cuota, estado vivo de la apuesta, jerarquía de equipos, prioridad relativa) ya fueron confirmadas por el Director Creativo en conversación: cuota calculada de forma coherente desde la probabilidad + margen de casa sin rango fijo, estado vivo siempre visible sin condicionarlo a investigación, jerarquía resuelta con datos reales en `team-roster-seed.csv`, y prioridad E.7/E.8 → D.6 → D.7/E.9 ya reflejada en `roadmap.md` y `backlog.md`.
