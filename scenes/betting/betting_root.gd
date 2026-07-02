@@ -23,6 +23,7 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _tutorial_overlay: TutorialOverlay = $TutorialOverlay
 @onready var _run_end_screen: RunEndScreen = $RunEndScreen
 @onready var _resolution_feedback_overlay: ResolutionFeedbackOverlay = $ResolutionFeedbackOverlay
+@onready var _empty_day_overlay: EmptyDayOverlay = $EmptyDayOverlay
 
 var _score_labels: Dictionary = {}  # match_id (StringName) -> Label
 var _live_bet_tickets: Array[LiveBetTicket] = []
@@ -41,6 +42,7 @@ var _landing_timer: Timer = null
 
 func _ready() -> void:
 	_run_end_screen.continue_pressed.connect(_on_run_end_continue_pressed)
+	_empty_day_overlay.skip_finished.connect(_on_empty_day_skip_finished)
 	_match_selector.match_focus_requested.connect(_on_match_selector_focus_requested)
 	_continue_button.pressed.connect(request_advance_tick)
 	_refresh_global_continue_state()
@@ -130,12 +132,55 @@ func _format_day_label(day: BettingDay.Day) -> String:
 ## sin ningún partido (D.6: jornada CONCENTRATED, que concentra todos los partidos en un único día),
 ## lo salta automáticamente en vez de esperar una apuesta obligatoria que nunca podría llegar -- misma
 ## invariante anti-bloqueo que motivó el Bug 1 (nunca dejar al jugador esperando algo imposible).
+##
+## E.10: el salto de un día vacío ya no es instantáneo -- se interpone EmptyDayOverlay (temporizador
+## ~1.8s, sin capturar input) y el avance se difiere a _on_empty_day_skip_finished. Excepción: domingo
+## vacío (caso teórico no alcanzable con los números reales de la liga, ver nota QA en
+## _split_matches_for_day) no avanza a otro día -- cae directo en _close_run_after_sunday, así que
+## conserva el salto directo para no encadenar la pantalla con la de fin de run.
 func _start_day_and_countdown(day: BettingDay.Day) -> void:
 	_start_day(day)
 	if _match_panels.is_empty():
-		_on_matchday_finished(-1)
+		if day == BettingDay.Day.SUNDAY:
+			_on_matchday_finished(-1)
+		else:
+			_empty_day_overlay.show_empty_day(day, _next_day_with_matches(day))
 	else:
 		_start_landing_countdown()
+
+
+## Reanuda el avance de día tras el temporizador de EmptyDayOverlay -- reproduce exactamente la
+## llamada que antes de E.10 era inmediata (sección 4.3 de la spec).
+func _on_empty_day_skip_finished() -> void:
+	_on_matchday_finished(-1)
+
+
+## Mismo mapeo que ya usa _on_matchday_finished (FRIDAY->SATURDAY, SATURDAY->SUNDAY); paso interno de
+## _next_day_with_matches (E.10, sección 9 de la spec).
+func _next_day_after(day: BettingDay.Day) -> BettingDay.Day:
+	match day:
+		BettingDay.Day.FRIDAY:
+			return BettingDay.Day.SATURDAY
+		BettingDay.Day.SATURDAY:
+			return BettingDay.Day.SUNDAY
+		_:
+			return day
+
+
+## Devuelve el primer día POSTERIOR a `from_day` que tiene al menos un partido, consultando el
+## reparto por día ya determinista (_matches_for_day) sin arrancar ni mutar ningún día. Se usa sólo
+## para poblar EmptyDayOverlay.DetailLabel con el próximo día con partidos (E.10, sección 9 de la
+## spec, corrección post-commit 0a8c733). En una jornada CONCENTRATED con viernes y sábado vacíos,
+## devuelve SUNDAY para ambos. Domingo (último día de la run) es el piso garantizado: en CONCENTRATED
+## siempre tiene todos los partidos, así que el bucle siempre termina.
+func _next_day_with_matches(from_day: BettingDay.Day) -> BettingDay.Day:
+	var matchday_fixture: MatchdayFixture = LeagueState.get_current_matchday_fixture()
+	var candidate: BettingDay.Day = from_day
+	while candidate != BettingDay.Day.SUNDAY:
+		candidate = _next_day_after(candidate)
+		if matchday_fixture != null and not _matches_for_day(matchday_fixture, candidate).is_empty():
+			return candidate
+	return candidate
 
 
 ## Arranca la simulación del día indicado con el subconjunto de partidos de la jornada de liga

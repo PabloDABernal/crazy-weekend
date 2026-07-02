@@ -537,7 +537,168 @@ Los cambios técnicos clave de D.6 (reloj de jornada, kickoff_offset_minutes, de
 - Mercados permitidos por Crazy son distintos entre partidos (Crazy evaluado por partido, no globalmente).
 - Momento Crazy desaparece silenciosamente en una jornada STAGGERED (invariante de arranque violada).
 
-## 9. Fuera de alcance de esta primera ronda de pruebas
+## 9. E.10 — Pantalla breve "no hay partidos hoy" en días vacíos (jornadas concentradas)
+
+Contexto: Historia pequeña de pulido UI que añade una pantalla breve con desaparición automática cuando la run detecta un día sin partidos en una jornada concentrada (ej. "Super Sunday" — última jornada de liga donde todos los partidos se concentran en domingo, dejando viernes/sábado vacíos).
+
+Ref: spec técnica `.ai-studio/specs/story-e10-dia-vacio.md`.
+
+**Corrección post-implementación (sección 9 de la spec):** El texto de la pantalla debe mostrar el **próximo día CON partidos** (ej. "domingo"), no el día inmediatamente siguiente en el calendario. En un "Super Sunday" con viernes y sábado vacíos, la pantalla de viernes y la de sábado deben ambas decir "domingo", no "sábado/domingo" respectivamente.
+
+### 9.1 Pantalla aparece en jornada concentrada, día vacío
+
+**Objetivo:** Verificar que cuando se llega a un día sin partidos en una jornada CONCENTRATED (ej. viernes en "Super Sunday"), la pantalla breve aparece con un aviso antes de que la run continúe.
+
+**Setup:**
+- Juega hasta llegar a la **última jornada de la temporada** (jornada 38 o equivalente, según `TOTAL_MATCHDAYS` en `LeagueRules`), o la que esté marcada como SPECIAL/CONCENTRATED.
+- Verifica que esa jornada tiene todos (o casi todos) los partidos el mismo día (ej. domingo), dejando viernes y sábado vacíos.
+
+**Pasos:**
+
+1. Al avanzar desde el jueves a viernes (de la jornada concentrada), el juego carga el día.
+   - No hay partidos en viernes (es un día vacío en esta jornada).
+2. **Señal de éxito:** Inmediatamente (antes de que aparezca el countdown de aterrizaje ni ningún partido LIVE) aparece una pantalla breve superpuesta diciendo algo como:
+   - **Título:** `"No hay partidos hoy"`
+   - **Detalle:** `"La jornada se concentra en [día]."` (ej. `"La jornada se concentra en domingo."`)
+   - La pantalla es gris/atenuada, no interactiva (no pide click).
+3. La pantalla desaparece automáticamente tras ~2 segundos (ver sección 9.3 para duración exacta).
+4. Después de que desaparece, la run avanza automáticamente a sábado (día siguiente, que también está vacío).
+5. **Señal de fallo:**
+   - La pantalla no aparece en viernes vacío → la run no muestra feedback, solo salta.
+   - La pantalla aparece pero necesita un click para cerrar → bloquea el ritmo (Bug 1).
+   - El texto dice un día incorrecto (ej. "se concentra en sábado" cuando debería decir "domingo").
+
+### 9.2 Pantalla NO aparece en jornada normal
+
+**Objetivo:** Confirmar que en una jornada STAGGERED normal (con partidos escalonados a lo largo de viernes/sábado/domingo), la pantalla de "no hay partidos" nunca aparece.
+
+**Setup:**
+- Juega una jornada normal (cualquiera excepto la última, o si la última no está marcada como CONCENTRATED).
+- Verifica que esa jornada tiene partidos distribuidos a lo largo de viernes, sábado y domingo (offsets [0, 15, 15, 30, ...]).
+
+**Pasos:**
+
+1. Avanza a viernes de esa jornada normal.
+2. Espera a ver el countdown de aterrizaje y los primeros partidos LIVE.
+3. **Señal de éxito:** La pantalla breve de "no hay partidos" nunca aparece. Ves directamente el countdown y los partidos.
+4. Juega viernes completo → avanza a sábado → la pantalla breve nunca aparece.
+5. **Señal de fallo:**
+   - La pantalla aparece en una jornada normal (indica error en la lógica de detección de día vacío).
+   - Algún día que debería tener partidos se ve como vacío.
+
+### 9.3 Cierre automático sin necesidad de click
+
+**Objetivo:** Validar que la pantalla se cierra sola tras un tiempo breve, manteniendo el ritmo del juego sin requerir input del jugador.
+
+**Setup:**
+- Llega a un día vacío en una jornada concentrada (como en 9.1).
+
+**Pasos:**
+
+1. La pantalla aparece.
+2. **Sin hacer nada** (no muevas el ratón, no hagas click, no toques nada):
+   - Cronometra mentalmente cuánto tarda en desaparecer.
+   - **Señal de éxito:** Desaparece automáticamente en ~1.5–2.0 segundos (rango especificado: 1.8 es el default, 1.5–2.0 es aceptable).
+   - La pantalla está posicionada donde no interfiere con botones (ej. centrada, no sobre "Continuar").
+   - No hay overlay adicional (ej. no aparece un botón de "cerrar" u overlay bloqueante).
+3. Si intentas hacer click **sobre la pantalla** durante esos ~2 segundos:
+   - **Si es correcto:** El click se ignora (pasa por la pantalla sin efecto, `mouse_filter = IGNORE` en la spec).
+   - **Señal de fallo:** El click interactúa con algo detrás (hace que desaparezca antes, o selecciona un botón).
+
+### 9.4 [día] apunta al próximo día CON partidos, no al siguiente en calendario
+
+**Objetivo:** Verificar el fix clave de E.10: en una jornada concentrada con múltiples días vacíos consecutivos, la pantalla de cada día vacío dice el **primer día que sí tiene partidos**, no el día calendario siguiente.
+
+**Setup:**
+- Último matchday (ej. jornada 38) con todos los partidos en domingo.
+- Viernes y sábado ambos están vacíos.
+
+**Pasos:**
+
+1. Avanza a **viernes** de esa jornada concentrada.
+2. La pantalla aparece. Anota el texto exacto, especialmente la parte de "[día]".
+   - **Señal de éxito:** Dice `"La jornada se concentra en domingo."` (no "sábado").
+   - **Señal de fallo:** Dice `"La jornada se concentra en sábado."` (es el error que se corrigió en la sección 9 de la spec).
+3. Espera a que desaparezca. La run avanza a sábado.
+4. En **sábado** (que también está vacío), aparece la pantalla de nuevo.
+5. Anota nuevamente el texto.
+   - **Señal de éxito (crítica):** También dice `"La jornada se concentra en domingo."` (mismo que viernes).
+   - **Señal de fallo:** Dice `"La jornada se concentra en domingo para sábado"` o algo inconsistente. **Esto indicaría que sábado tiene una referencia diferente, un bug en el lookahead `_next_day_with_matches`.**
+6. Espera a que desaparezca. La run avanza a domingo, donde hay partidos → flujo normal.
+
+### 9.5 Cascada correcta: múltiples pantallas en secuencia
+
+**Objetivo:** Verificar que si hay 2+ días vacíos seguidos (viernes y sábado), se ven 2+ pantallas breves en secuencia, sin bloqueos, cada una cerrándose antes de que aparezca la siguiente.
+
+**Setup:**
+- Mismo que en 9.4: jornada concentrada con viernes y sábado vacíos.
+
+**Pasos:**
+
+1. Entra a viernes vacío.
+   - Pantalla 1 aparece: `"No hay partidos hoy"` / `"La jornada se concentra en domingo."`
+   - Cronometra: desaparece en ~2 segundos.
+2. Inmediatamente (sin pause manual), aparece la **Pantalla 2** (sábado vacío):
+   - `"No hay partidos hoy"` / `"La jornada se concentra en domingo."` (mismo texto que viernes, porque ambos apuntan a domingo).
+   - Desaparece en otros ~2 segundos.
+3. Inmediatamente después, la run llega a **domingo con partidos** → ves el countdown y los partidos LIVE (flujo normal).
+
+**Señal de éxito:**
+- Las 2 pantallas aparecen en secuencia clara: viernes, espera, desaparece; sábado, espera, desaparece; domingo aparece.
+- No hay superposición de pantallas.
+- El texto es consistente (ambas dicen "domingo").
+- Tiempo total: ~4–5 segundos desde que entras a viernes hasta que ves domingo.
+
+**Señal de fallo:**
+- Las pantallas se solapan (confusión visual).
+- Una pantalla desaparece instantáneamente antes de ser legible.
+- El texto cambia entre viernes y sábado (indica lookahead incorrecto).
+- Bloqueo en algún punto (indicaría que la cascada no está automatizada).
+
+### 9.6 No reintroduce Bug 1: sin gate de apuesta obligatoria en días vacíos
+
+**Objetivo:** Garantizar que durante el salto de días vacíos (cuando aparecen las pantallas breves), no se abre ningún tick, no hay mercados, y por tanto no hay apuesta obligatoria que bloquee el botón "Continuar".
+
+**Setup:**
+- Mismo que en 9.4/9.5: jornada concentrada, viernes y sábado vacíos.
+
+**Pasos:**
+
+1. Entra a viernes vacío. Pantalla breve aparece.
+2. Mira la UI de apuestas:
+   - **Si es correcto:** No hay mercados visibles, no hay overlay de "debes apostar", no hay partidos en la lista.
+   - La pantalla de "no hay partidos hoy" es lo único que se muestra (además del background del juego).
+3. Intenta mirar si el botón "Continuar →" está habilitado o deshabilitado:
+   - **Esperado:** El botón debe estar **deshabilitado** (porque técnicamente no hay partidos en viernes para apostar), PERO **no debe mostrar un mensaje de espera** como "esperando apuestas en X partidos".
+   - **Alternativa aceptable:** Si el botón está **habilitado** directamente durante la pantalla breve (ignorando viernes por ser vacío), es correcto también.
+4. Espera a que la pantalla desaparezca automáticamente (sin requerir apuesta, sin bloqueo).
+5. La run avanza a sábado → repite lo mismo.
+6. Llega a domingo → ves la apuesta obligatoria normal.
+
+**Señal de éxito:**
+- Ninguna pantalla "estás en bancarrota" ni "obligatorio apostar" durante viernes/sábado vacíos.
+- El botón "Continuar" no dice "esperando apuestas en viernes" cuando estás en viernes vacío.
+- La transición es automática sin intervención del jugador.
+
+**Señal de fallo (Critical):**
+- Aparece el gate de apuesta obligatoria en un día vacío (Bug 1 reintroducido).
+- El botón "Continuar" se bloquea esperando una apuesta en viernes/sábado vacío.
+- Hay un overlay de apuesta obligatoria que no se cierra automáticamente.
+
+---
+
+**Resumen de señales de fallo críticas para E.10:**
+- Pantalla no aparece en día vacío de jornada concentrada.
+- Pantalla aparece en día CON partidos (falsa positiva).
+- Pantalla no desaparece automáticamente (requiere click o queda pegada).
+- Texto muestra día incorrecto (ej. "sábado" en lugar de "domingo" en un Super Sunday).
+- Pantallas múltiples se solapan o desaparecen demasiado rápido para ser leídas.
+- Gate de apuesta obligatoria aparece en día vacío (Bug 1 reintroducido).
+- Cascada no es secuencial (varios días vacíos no se procesan en orden).
+- Texto inconsistente entre pantallas de viernes y sábado (indicaría lookahead quebrado).
+
+
+## 10. Fuera de alcance de esta primera ronda de pruebas
 
 - Fases narrativas 3 y 4 del deterioro (requieren 13+ y 21+ runs jugadas — poco práctico en una sesión corta).
 - Contenido narrativo real: todo el texto de comentarios, Expediente e intro está en placeholders "pendiente de redacción" — no es un bug, falta escribirlo.
