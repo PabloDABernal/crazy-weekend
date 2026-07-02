@@ -51,3 +51,11 @@ Qué: cada subagente en `.claude/agents/` declara su propio `model` en el frontm
 Por qué: el Director Creativo preguntó si tenía sentido usar un único modelo para todos los roles. Diferenciar reduce costo/latencia en tareas simples y reserva más capacidad para las decisiones que son más caras de deshacer si salen mal.
 
 Cuándo: 2026-07-02.
+
+## 2026-07-02 — Nuevo rol: Playtester
+
+Qué: se añade un octavo subagente, `playtester` (`.claude/agents/playtester.md`, modelo Opus), distinto de QA: QA valida que la funcionalidad no falle, Playtester evalúa si lo que no falla se siente divertido (ritmo, tensión, claridad de feedback), simulando sesiones y contrastándolas contra `vision.md`/`game-design.md`. Registra sus sesiones en `.ai-studio/memory/playtest-log.md`.
+
+Por qué: tras el primer playtest manual del Director Creativo (feedback extenso sobre feel/UX, no solo bugs), el Director preguntó si el estudio necesitaba un agente dedicado a jugar y hacer brainstorming de diversión en vez de que esto recaiga solo en sesiones manuales del Director. Se confirmó que sí, como rol nuevo separado de QA.
+
+Cuándo: 2026-07-02.

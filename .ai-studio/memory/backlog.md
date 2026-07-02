@@ -250,3 +250,10 @@ Decisión del Director Creativo: Corners y Resultado Exacto quedan diferidos a p
 ---
 
 ## Bugs
+
+### Bug 1 — Bloqueo al confirmar apuesta obligatoria del 50% en un Momento Crazy
+**Qué**: reportado por el Director Creativo durante un playtest. Con saldo de 831$, el sistema mostró un input de apuesta con el texto "50% obligatorio ($416)" superpuesto sobre la pestaña del partido en curso (Osasuna Rojilla 1-0 Sevilla FC, minuto 30), junto con un tinte visual rojo/vino cubriendo toda la pantalla. El botón "Continuar →" permaneció deshabilitado y el juego no dejó avanzar ni completar la apuesta forzosa, interrumpiendo la sesión de playtest en ese punto.
+**Por qué (pista para Architect, no diagnóstico)**: el texto "50% obligatorio ($416)" y el tinte visual coinciden con el disparo de un Momento Crazy / Crazy Bet (mecanismo ya documentado en la Historia B.3 — fuerza el stake al 50%/70%/100% del dinero actual). Todo apunta a que el Momento Crazy se disparó correctamente, pero algo en el flujo de captura/validación de esa apuesta forzosa está bloqueando el input o la habilitación del botón "Continuar →", impidiendo cerrar el tick. La causa exacta en el código queda por aislar — no se ha investigado a nivel de implementación.
+**Severidad/Prioridad**: bloqueante — impidió continuar jugando y cortó la sesión de playtest. Prioridad alta.
+**Criterio de éxito (de la corrección)**: al dispararse un Momento Crazy con stake forzoso (50%, 70% o 100%), el jugador puede confirmar la apuesta obligatoria y el botón "Continuar →" se habilita correctamente al cumplirse la condición de stake, permitiendo avanzar de tick sin bloqueos.
+**Siguiente paso (workflow de bug)**: pasa a Architect/Programmer para reproducir el escenario (Momento Crazy con stake forzoso del 50%) y aislar la causa exacta en el código de validación/habilitación del input de apuesta y del botón "Continuar →".

@@ -21,6 +21,7 @@ Motor: Godot. Lenguaje: GDScript. (Ver `.ai-studio/memory/decisions.md`.)
 | `programmer` | Hay una spec aprobada lista para implementar |
 | `reviewer` | Ya hay código implementado, antes de QA |
 | `qa` | Después de review, para probar la funcionalidad |
+| `playtester` | Hay una porción jugable y hace falta evaluar diversión/feel real (no solo que funcione) — sesiones de playtest y brainstorming de mejoras |
 
 ## Flujo
 
