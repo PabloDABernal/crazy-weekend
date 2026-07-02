@@ -42,7 +42,7 @@ static func assign_staggered_offsets(matches: Array[MatchFixture], rng: RandomNu
 		return
 
 	var shuffled: Array[MatchFixture] = matches.duplicate()
-	_shuffle(shuffled, rng)
+	ArrayUtils.shuffle(shuffled, rng)
 
 	var offsets: Array[int] = LeagueRules.KICKOFF_OFFSETS_STAGGERED
 	var has_zero_offset: bool = false
@@ -57,17 +57,33 @@ static func assign_staggered_offsets(matches: Array[MatchFixture], rng: RandomNu
 	if not has_zero_offset:
 		shuffled[0].kickoff_offset_minutes = 0
 
+	_assert_no_live_coverage_gap(shuffled)
+
+
+## Invariante estructural (no accidente de los valores actuales de LeagueRules.
+## KICKOFF_OFFSETS_STAGGERED): en CADA ciclo de reloj de la jornada debe haber al menos 1 partido
+## LIVE, o el gate de tick obligatorio de BettingRoot se queda sin ningún mercado legal donde apostar
+## -- el mismo bloqueo que motivó el Bug 1. La garantía de offset 0 de arriba solo cubre el primer
+## ciclo; esto cubre los siguientes: mientras el hueco entre dos kickoffs consecutivos (ordenados) no
+## exceda la ventana LIVE de un partido (TICKS_PER_MATCH * MATCH_MINUTES_PER_TICK), el partido que
+## abrió el hueco sigue LIVE cuando arranca el siguiente, así que nunca hay un ciclo sin ningún LIVE.
+## Si KICKOFF_OFFSETS_STAGGERED cambiara a un espaciado mayor, esta aserción debe fallar en vez de
+## dejar pasar un deadlock silencioso.
+static func _assert_no_live_coverage_gap(matches: Array[MatchFixture]) -> void:
+	var used_offsets: Array[int] = []
+	for match_fixture in matches:
+		if not used_offsets.has(match_fixture.kickoff_offset_minutes):
+			used_offsets.append(match_fixture.kickoff_offset_minutes)
+	used_offsets.sort()
+
+	var max_gap_allowed: int = LeagueRules.TICKS_PER_MATCH * LeagueRules.MATCH_MINUTES_PER_TICK
+	for i in range(1, used_offsets.size()):
+		var gap: int = used_offsets[i] - used_offsets[i - 1]
+		assert(gap <= max_gap_allowed, "MatchdayScheduler: hueco de %d min entre kickoffs %d y %d excede la ventana LIVE de un partido (%d min) -- puede reintroducir el deadlock del Bug 1 (ningún partido LIVE en algún ciclo de reloj)" % [gap, used_offsets[i - 1], used_offsets[i], max_gap_allowed])
+
 
 ## Jornada especial (CONCENTRATED / "Super Sunday"): todos los partidos comparten el mismo kickoff
 ## (offset 0), concentrando la máxima audiencia posible en un único arranque simultáneo.
 static func assign_concentrated_offsets(matches: Array[MatchFixture]) -> void:
 	for match_fixture in matches:
 		match_fixture.kickoff_offset_minutes = 0
-
-
-static func _shuffle(array: Array, rng: RandomNumberGenerator) -> void:
-	for i in range(array.size() - 1, 0, -1):
-		var j: int = rng.randi_range(0, i)
-		var tmp = array[i]
-		array[i] = array[j]
-		array[j] = tmp

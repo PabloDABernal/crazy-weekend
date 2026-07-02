@@ -110,6 +110,15 @@ func _assert_live_match_never_runs_out_of_markets_across_ticks(matchday_fixture:
 		seen_match_ids_this_cycle.clear()
 		service.advance_tick()
 
+		if not service.is_matchday_finished():
+			var any_live_this_cycle: bool = false
+			for match_fixture in matchday_fixture.matches:
+				if service.get_match_status(match_fixture.match_id) == MatchSimulationService.MatchStatus.LIVE:
+					any_live_this_cycle = true
+					break
+			if not any_live_this_cycle:
+				_failures.append("ciclo #%d: la jornada sigue activa pero ningún partido está LIVE -- deadlock tipo Bug 1 (nada legal donde apostar)" % i)
+
 		for match_id in live_before_advance:
 			if service.get_match_status(match_id) == MatchSimulationService.MatchStatus.FINISHED:
 				continue   # este avance lo terminó -- ya no necesita mercados abiertos

@@ -27,7 +27,7 @@ static func generate_teams(rng: RandomNumberGenerator) -> Array[TeamDef]:
 	var shuffled_indices: Array[int] = []
 	for i in range(TEAM_NAME_POOL.size()):
 		shuffled_indices.append(i)
-	_shuffle_array(shuffled_indices, rng)
+	ArrayUtils.shuffle(shuffled_indices, rng)
 
 	var star_indices: Array[int] = shuffled_indices.slice(0, LeagueRules.STAR_TEAM_COUNT)
 
@@ -144,14 +144,6 @@ static func generate_calendar(teams: Array[TeamDef], season_number: int, rng: Ra
 			rotating.push_front(rotating.pop_back())
 
 	return calendar
-
-
-static func _shuffle_array(array: Array, rng: RandomNumberGenerator) -> void:
-	for i in range(array.size() - 1, 0, -1):
-		var j: int = rng.randi_range(0, i)
-		var tmp = array[i]
-		array[i] = array[j]
-		array[j] = tmp
 
 
 static func _slugify(display_name: String) -> StringName:
