@@ -7,6 +7,7 @@ class_name BettingRoot extends Control
 signal run_closed(categories_unlocked_this_run: Array)
 
 const MATCH_PANEL_SCENE: PackedScene = preload("res://scenes/betting/match_panel.tscn")
+const LIVE_BET_TICKET_SCENE: PackedScene = preload("res://scenes/betting/live_bet_ticket.tscn")
 const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 
 @onready var _match_simulation_service: MatchSimulationService = $MatchSimulationService
@@ -21,8 +22,10 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _crazy_moment_overlay: CrazyMomentOverlay = $CrazyMomentOverlay
 @onready var _tutorial_overlay: TutorialOverlay = $TutorialOverlay
 @onready var _run_end_screen: RunEndScreen = $RunEndScreen
+@onready var _resolution_feedback_overlay: ResolutionFeedbackOverlay = $ResolutionFeedbackOverlay
 
 var _score_labels: Dictionary = {}  # match_id (StringName) -> Label
+var _live_bet_tickets: Array[LiveBetTicket] = []
 
 var _focused_match_id: StringName = &""
 var _match_panels: Dictionary = {}          # match_id (StringName) -> MatchPanel instanciado
@@ -49,6 +52,7 @@ func _ready() -> void:
 	EventBus.matchday_finished.connect(_on_matchday_finished)
 	EventBus.run_ended.connect(_on_run_ended)
 	EventBus.victory_category_unlocked.connect(_on_victory_category_unlocked)
+	_pending_bets_tracker.bet_resolved.connect(_on_pending_bet_resolved)
 
 	_start_day(RunState.current_day)
 
@@ -246,6 +250,9 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 	panel.on_tick_opened(context, match_state, home_team, away_team, commentary_context)
 	_update_hour_display()
 	_refresh_global_continue_state()
+	# E.8 -- el tick que avanza cambia el estado vivo de las apuestas abiertas de este partido (y de
+	# cualquier otro ya refrescado), sin esperar a que se registre/resuelva una apuesta nueva.
+	_refresh_live_bet_tickets()
 
 
 ## Delega a CrazyMomentOverlay y notifica a TODOS los MatchPanel activos (el Crazy Bet aplica al tick
@@ -427,9 +434,14 @@ func _refresh_score_label(match_id: StringName, state: MatchTickState) -> void:
 	lbl.text = "%s  %d-%d  %s  (min %d)" % [h, state.home_goals, state.away_goals, a, state.current_minute]
 
 
+## E.8 -- boleto vivo: un LiveBetTicket por PendingBet abierta (ya no un resumen plano de las últimas
+## 4). Se reconstruye por completo en cada alta/baja de apuestas (pending_bets_changed vía
+## _on_bet_tick_resolved/_on_match_panel_bet_confirmed); el estado vivo de cada ticket ya creado se
+## refresca aparte en cada bet_tick_opened, ver _refresh_live_bet_tickets.
 func _refresh_pending_bets_panel() -> void:
 	for child in _pending_bets_panel.get_children():
 		child.queue_free()
+	_live_bet_tickets.clear()
 
 	var pending: Array[PendingBet] = _pending_bets_tracker.get_pending_bets()
 	if pending.is_empty():
@@ -445,26 +457,47 @@ func _refresh_pending_bets_panel() -> void:
 	summary.text = "%d apuesta%s · $%d en juego" % [pending.size(), "s" if pending.size() != 1 else "", total]
 	_pending_bets_panel.add_child(summary)
 
-	var start: int = max(0, pending.size() - 4)
-	for i in range(start, pending.size()):
-		var bet: PendingBet = pending[i]
-		var market_name: String = _format_market_name(bet.market_offer.market_id)
-		var lbl := Label.new()
-		lbl.text = "  $%d · %s" % [bet.stake, market_name]
-		_pending_bets_panel.add_child(lbl)
+	for bet in pending:
+		var ticket: LiveBetTicket = LIVE_BET_TICKET_SCENE.instantiate()
+		_pending_bets_panel.add_child(ticket)
+		ticket.setup(bet, _match_label_for(bet.match_id))
+		_live_bet_tickets.append(ticket)
+
+	_refresh_live_bet_tickets()
 
 
-func _format_market_name(market_id: StringName) -> String:
-	match String(market_id):
-		"1x2": return "resultado"
-		"btts": return "ambos marcan"
-		"first_scorer": return "1er goleador"
-		"goals_ou_1_5": return "goles >1.5"
-		"goals_ou_2_5": return "goles >2.5"
-		"goals_ou_3_5": return "goles >3.5"
-		"cards_ou": return "tarjetas"
-		"fouls_ou": return "faltas"
-	return String(market_id)
+## Consulta MatchSimulationService.get_match_tick_state(match_id) por cada ticket (ya expuesto, ver
+## sección 3 de la spec E.8) y le pasa el estado actual del partido para recalcular estado vivo +
+## cuánto falta para su resolución.
+func _refresh_live_bet_tickets() -> void:
+	for ticket in _live_bet_tickets:
+		var match_state: MatchTickState = _match_simulation_service.get_match_tick_state(ticket.get_match_id())
+		ticket.refresh_live_state(match_state)
+
+
+func _match_label_for(match_id: StringName) -> String:
+	var matchday_fixture: MatchdayFixture = LeagueState.get_current_matchday_fixture()
+	if matchday_fixture == null:
+		return String(match_id)
+	for match_fixture in matchday_fixture.matches:
+		if match_fixture.match_id == match_id:
+			var home_team: TeamDef = LeagueState.get_team(match_fixture.home_team_id)
+			var away_team: TeamDef = LeagueState.get_team(match_fixture.away_team_id)
+			var h: String = home_team.display_name if home_team != null else String(match_fixture.home_team_id)
+			var a: String = away_team.display_name if away_team != null else String(match_fixture.away_team_id)
+			return "%s vs %s" % [h, a]
+	return String(match_id)
+
+
+## Consume PendingBetsTracker.bet_resolved (E.8, señal local a la UI de apuestas) y dispara el
+## feedback enérgico de resolución -- dopamina alta y consistente en cualquier fase narrativa (sección
+## 4 de la spec).
+func _on_pending_bet_resolved(pending_bet: PendingBet, won: bool, payout: int) -> void:
+	if won:
+		var net: int = payout - pending_bet.stake
+		_resolution_feedback_overlay.show_win(payout, net)
+	else:
+		_resolution_feedback_overlay.show_loss(pending_bet.stake)
 
 
 func _current_matchday_id() -> StringName:
