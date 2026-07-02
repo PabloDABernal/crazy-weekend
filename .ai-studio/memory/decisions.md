@@ -43,3 +43,11 @@ Qué: el MVP jugable de punta a punta no encadena runs sueltas en bucle sin ning
 Por qué: el Coordinator señaló en un reporte previo que el MVP, tal como estaba planteado, mockeaba la fase inter-run con dinero base fijo y una pantalla mínima de "continuar" (nota original en Historia E.5). Consultado explícitamente sobre si eso era aceptable para esta iteración, el Director Creativo pidió un mínimo de fase inter-run real ya en esta iteración, no la versión completa.
 
 Cuándo: 2026-07-01.
+
+## 2026-07-02 — Asignación de modelo por agente
+
+Qué: cada subagente en `.claude/agents/` declara su propio `model` en el frontmatter en vez de heredar el de la sesión principal. Criterio: Opus para juicio creativo/técnico de mayor riesgo (Architect, Game Designer, Reviewer), Sonnet para trabajo estructurado o de implementación directa (Coordinator, Programmer), Haiku para tareas acotadas y mecánicas (Analyst, QA).
+
+Por qué: el Director Creativo preguntó si tenía sentido usar un único modelo para todos los roles. Diferenciar reduce costo/latencia en tareas simples y reserva más capacidad para las decisiones que son más caras de deshacer si salen mal.
+
+Cuándo: 2026-07-02.

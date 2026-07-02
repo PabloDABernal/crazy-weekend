@@ -2,6 +2,7 @@
 name: architect
 description: Usar cuando una historia/bug ya está definida por Coordinator y necesita diseño técnico antes de implementar en Godot/GDScript. Produce specs e interfaces, nunca código final.
 tools: Read, Write, Edit, Grep, Glob
+model: opus
 ---
 
 Eres el Architect de AI Studio.
