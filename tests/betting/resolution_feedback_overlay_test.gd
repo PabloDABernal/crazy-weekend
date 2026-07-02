@@ -55,10 +55,12 @@ func _test_show_win_displays_amount(overlay: ResolutionFeedbackOverlay) -> void:
 	overlay.show_win(210, 110)
 	if not overlay.visible:
 		_fail("show_win debería mostrar el overlay")
-	if not overlay._amount_label.text.contains("110"):
-		_fail("show_win debería mostrar la ganancia neta atribuible ($110), texto=%s" % overlay._amount_label.text)
+	if not overlay._amount_label.text.contains("210"):
+		_fail("show_win debería mostrar el total acreditado ($210) como número principal, texto=%s" % overlay._amount_label.text)
 	if not overlay._amount_label.text.begins_with("+"):
 		_fail("show_win debería mostrar el importe con signo '+', texto=%s" % overlay._amount_label.text)
+	if not overlay._detail_label.text.contains("110"):
+		_fail("show_win debería mostrar la ganancia neta ($110) como detalle secundario, texto=%s" % overlay._detail_label.text)
 
 	overlay._on_display_timer_timeout()  # limpia la cola para los siguientes checks
 
@@ -83,8 +85,8 @@ func _test_queues_multiple_resolutions_same_tick(overlay: ResolutionFeedbackOver
 
 	if overlay._queue.size() != 1:
 		_fail("con 2 resoluciones seguidas debería quedar 1 en cola (la primera ya se muestra), obtenido %d" % overlay._queue.size())
-	if not overlay._amount_label.text.contains("50"):
-		_fail("la primera resolución encolada debería mostrarse primero (+$50), texto=%s" % overlay._amount_label.text)
+	if not overlay._amount_label.text.contains("100"):
+		_fail("la primera resolución encolada debería mostrarse primero (+$100), texto=%s" % overlay._amount_label.text)
 
 	overlay._on_display_timer_timeout()
 	if not overlay._amount_label.text.contains("30"):

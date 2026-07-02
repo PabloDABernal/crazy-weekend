@@ -54,8 +54,8 @@ func _show_next() -> void:
 	visible = true
 
 	if entry["won"]:
-		_amount_label.text = "+$%d" % entry["net"]
-		_detail_label.text = "cobras $%d" % entry["amount_returned"]
+		_amount_label.text = "+$%d" % entry["amount_returned"]
+		_detail_label.text = "neto +$%d" % entry["net"]
 	else:
 		_amount_label.text = "-$%d" % entry["amount_lost"]
 		_detail_label.text = ""
