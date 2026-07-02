@@ -13,6 +13,8 @@ signal bet_confirmed(market_id: StringName, option_key: StringName, stake: int)
 @onready var _confirm_bet_button: Button = $BetRow/ConfirmBetButton
 @onready var _payout_preview_label: Label = $PayoutRow/PayoutPreviewLabel
 @onready var _disabled_overlay: Control = $DisabledOverlay
+@onready var _unavailable_overlay: Control = $UnavailableOverlay
+@onready var _unavailable_reason_label: Label = $UnavailableReasonLabel
 
 var market_id: StringName = &""
 var _offers_by_option: Dictionary = {}   # option_key (StringName) -> MarketOffer
@@ -23,6 +25,7 @@ var _option_buttons: Dictionary = {}     # option_key (StringName) -> Button
 var _minimum_stake: int = 0
 var _forced_stake_amount: int = -1       # -1 = sin stake forzoso vigente (no Crazy Bet)
 var _is_restricted: bool = false
+var _is_unavailable: bool = false        # E.9 -- mercado retirado por D.7 (resuelto/imposible)
 
 
 func _ready() -> void:
@@ -31,12 +34,16 @@ func _ready() -> void:
 	if ResourceLoader.exists(OPTION_LABELS_PATH):
 		_option_labels = ResourceLoader.load(OPTION_LABELS_PATH)
 	_disabled_overlay.visible = false
+	_unavailable_overlay.visible = false
+	_unavailable_reason_label.visible = false
 
 
 ## Puebla el widget con las ofertas vigentes de este mercado para el tick actual.
 func refresh(offers: Array[MarketOffer]) -> void:
 	if offers.is_empty():
 		return
+
+	_clear_unavailable()
 
 	market_id = offers[0].market_id
 	_offers_by_option.clear()
@@ -48,6 +55,35 @@ func refresh(offers: Array[MarketOffer]) -> void:
 	_selected_option_key = &""
 	_update_confirm_button_enabled()
 	_update_payout_preview()
+
+
+## E.9 -- estado "retirado con razón" de un mercado que D.7 dejó de ofertar (resuelto/imposible),
+## distinto de set_restricted (restricción narrativa de Momento Crazy: no reutiliza el mismo overlay
+## para no confundir las dos causas). Deshabilita opciones/confirm y deja el título atenuado + la
+## razón visible; el contrato es "nunca ofertable, razón visible" (sección 3.1 de la spec).
+func set_unavailable(reason: String) -> void:
+	_is_unavailable = true
+	_selected_option_key = &""
+	_unavailable_overlay.visible = true
+	_unavailable_reason_label.visible = true
+	_unavailable_reason_label.text = reason
+	_market_title_label.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	_stake_input.editable = false
+	for key in _option_buttons.keys():
+		var button: Button = _option_buttons[key]
+		button.button_pressed = false
+		button.disabled = true
+	_update_confirm_button_enabled()
+
+
+func _clear_unavailable() -> void:
+	_is_unavailable = false
+	_unavailable_overlay.visible = false
+	_unavailable_reason_label.visible = false
+	_market_title_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	for key in _option_buttons.keys():
+		var button: Button = _option_buttons[key]
+		button.disabled = false
 
 
 func apply_forced_stake(amount: int) -> void:
@@ -179,7 +215,7 @@ func _on_stake_value_changed(_new_value: float) -> void:
 
 func _update_confirm_button_enabled() -> void:
 	var has_selection: bool = _selected_option_key != &""
-	_confirm_bet_button.disabled = _is_restricted or not has_selection
+	_confirm_bet_button.disabled = _is_restricted or _is_unavailable or not has_selection
 
 
 ## E.7 -- ganancia potencial viva en formato boleto, ligada al importe introducido y a la opción
@@ -222,7 +258,7 @@ func _estimate_offer_for_preview() -> MarketOffer:
 
 
 func _on_confirm_pressed() -> void:
-	if _is_restricted or _selected_option_key == &"":
+	if _is_restricted or _is_unavailable or _selected_option_key == &"":
 		return
 
 	var stake: int = int(_stake_input.value)

@@ -159,13 +159,19 @@ func is_matchday_finished() -> bool:
 
 
 ## Arma todas las MarketOffer (una por opción apostable) de un partido para este tick, resolviendo
-## primero el threshold variable de cards_ou/fouls_ou de este partido en concreto.
+## primero el threshold variable de cards_ou/fouls_ou de este partido en concreto. Filtra antes los
+## mercados ya resueltos/imposibles vía MarketAvailabilityResolver (D.7): el resto del flujo
+## (probabilidades -> OddsDisclosureResolver -> MarketOffer) no cambia.
 func _build_market_offers(market_definitions: Array[MarketDef], state: MatchTickState, home_team: TeamDef, away_team: TeamDef) -> Array[MarketOffer]:
 	var offers: Array[MarketOffer] = []
 	var thresholds_for_match: Dictionary = _resolved_variable_thresholds.get(state.match_id, {})
 
 	for market_def in market_definitions:
 		var effective_market: MarketDef = _resolve_effective_market(market_def, thresholds_for_match)
+		# D.7: mercados ya resueltos/imposibles se retiran de la oferta de este tick (capa base,
+		# independiente de restricciones de Momento Crazy/domingo, que se apilan encima).
+		if not MarketAvailabilityResolver.is_market_available(effective_market, state):
+			continue
 		var probabilities: Dictionary = OddsEngine.compute_market_probabilities(effective_market, state, home_team, away_team)
 
 		for option_key in probabilities.keys():

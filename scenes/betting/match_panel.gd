@@ -72,7 +72,10 @@ func on_tick_opened(context: BetTickContext, match_state: MatchTickState, home_t
 			widget.visible = true
 			widget.set_minimum_stake(StakeGate.compute_required_amount(RunState.get_money(), _active_crazy_bet))
 		else:
-			widget.visible = false
+			# D.7 ya retiró este mercado de available_markets (resuelto/imposible) -- E.9: mostrarlo
+			# "retirado con razón" en vez de ocultarlo en seco (nunca queda apostable).
+			widget.visible = true
+			widget.set_unavailable(MarketUnavailabilityReasonResolver.resolve_reason(market_id, match_state))
 
 	if _active_crazy_bet != null:
 		apply_crazy_moment_restriction(_active_crazy_bet)
