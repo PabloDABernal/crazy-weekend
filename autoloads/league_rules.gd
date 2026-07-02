@@ -39,3 +39,21 @@ const HOUSE_MARGIN_PHASE_INCREMENT: Dictionary = {
 	NarrativePhase.Phase.PHASE_1: 0.0, NarrativePhase.Phase.PHASE_2: 0.0,
 	NarrativePhase.Phase.PHASE_3: 0.02, NarrativePhase.Phase.PHASE_4: 0.05,
 }
+
+# --- D.6 — Calendario de jornada con horarios escalonados ---
+## Offsets candidatos (minutos, múltiplos de MATCH_MINUTES_PER_TICK) para MatchdayScheduler.
+## assign_staggered_offsets: valores de contenido (Game Designer), la forma -- escalonado con ventanas
+## de predominio 1-2 LIVE, sin techo -- es lo que fija la spec, no estos números concretos.
+const KICKOFF_OFFSETS_STAGGERED: Array[int] = [0, 15, 15, 30, 45, 60, 75, 90, 90, 105]
+
+## 0 = solo la última jornada de la temporada (TOTAL_MATCHDAYS-1) es CONCENTRATED ("Super Sunday").
+## >0 = además, cada N jornadas (múltiplo de N, excluyendo la 0) también es CONCENTRATED.
+const SPECIAL_MATCHDAY_EVERY_N: int = 0
+
+## Hora de reloj real ("bonita") de UI que corresponde a _clock_minutes=0 de cada día -- solo display
+## (TopBar.set_hour_text), no dato de motor. Ver BettingDay.Day.
+const DAY_BASE_HOUR: Dictionary = {
+	BettingDay.Day.FRIDAY: "20:00",
+	BettingDay.Day.SATURDAY: "16:15",
+	BettingDay.Day.SUNDAY: "14:00",
+}

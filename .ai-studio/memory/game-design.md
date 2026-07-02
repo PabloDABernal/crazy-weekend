@@ -146,9 +146,23 @@ La pantalla de colección más memorable de referencia (Balatro) celebra al juga
 - Un partido dura 90 minutos de tiempo de partido, dividido en 6 ticks de 15 minutos.
 - Tras cada tick, el juego pausa y muestra el panel de estado actualizado.
 - El jugador DEBE realizar al menos una apuesta antes de poder avanzar al siguiente tick. No existe opción de pasar sin apostar.
-- Varios partidos corren en paralelo. El jugador decide en qué partido focalizar su atención en cada tick (no puede ver todos a la vez con el mismo detalle).
+- Varios partidos corren en paralelo, pero **no todos arrancan a la vez** (ver "Calendario de jornada — horarios escalonados").
+- El jugador decide en qué partido focalizar su atención en cada tick (no puede ver todos a la vez con el mismo detalle).
 - El jugador puede tener apuestas abiertas en múltiples partidos simultáneamente.
 - No hay simulación visual del partido. Solo el panel informativo.
+
+### Calendario de jornada — horarios escalonados
+
+Decisión de diseño (feedback de playtest, run 1): los partidos de una jornada **no arrancan todos al minuto 0**. Cada partido tiene una **hora de inicio escalonada** dentro de la jornada, imitando un fin de semana de fútbol real. Esto es una decisión de diseño de *ritmo*, no cosmética: alarga la jornada, crea ventanas donde solo hay 1-2 partidos vivos, y hace que la atención del jugador sea un recurso a repartir en el tiempo, no solo en el espacio.
+
+**Comportamiento requerido:**
+- Cada partido de una jornada tiene una **hora de kickoff propia**, distribuida a lo largo de una franja horaria (ej. viernes 16:45, sábado 17:00 / 18:30 / 20:00, etc.). Las horas concretas son placeholder de diseño; lo que se fija es el *patrón*.
+- **No existe un techo fijo de partidos solapados.** Lo habitual es el patrón escalonado, con pocas partidos vivos a la vez (1-2), pero el sistema debe soportar **jornadas especiales** (ej. la última jornada de liga, un "Super Sunday") donde varios partidos, o todos, comparten la misma hora de kickoff y corren en paralelo de forma deliberada, como excepción de ritmo dentro del mismo calendario.
+- El reloj de la interfaz (la "hora actual" ya prevista en "Presentación") es el que gobierna qué partidos ya empezaron, cuáles están por empezar y cuáles terminaron. El tick obligatorio de apuesta se refiere al/los partido(s) actualmente en curso, no a todos los de la jornada.
+- Un partido que aún no ha empezado ya acepta apuestas pre-partido (coherente con "el jugador aterriza 15 min antes del primer partido"), pero no genera ticks ni comentarios hasta su kickoff.
+- La sensación buscada: una jornada tiene un *arranque* (pocos partidos), un *pico* (2 solapados, máxima presión de atención) y una *cola* (los últimos partidos, ya de noche). Esto da forma dramática a la jornada en vez de una masa plana de partidos paralelos.
+
+Nota de balance para Architect/Coordinator: el escalonado interactúa con el stake mínimo obligatorio por tick. Con menos partidos vivos al inicio, hay menos mercados donde colocar la apuesta obligatoria — hay que verificar que en el arranque de la jornada siempre exista al menos un mercado legal disponible para cumplir el tick, o el escalonado podría crear estados sin salida (relacionado con el bug bloqueante reportado).
 
 Panel de información por partido (actualizado en cada tick):
 - Marcador actual
@@ -176,15 +190,64 @@ La colección de tipos de victoria (ver "Win condition — Escape") necesita dos
 
 ### Odds y cuotas
 - Las probabilidades se muestran como porcentajes (ej: "Real Madrileño gana: 62%").
-- Las cuotas (multiplicador de ganancia) se derivan de las probabilidades con margen de casa integrado — el jugador nunca ve la cuota "justa".
+- Las cuotas (multiplicador de ganancia) se derivan de las probabilidades con margen de casa integrado — el jugador nunca ve la cuota "justa" (la matemáticamente correcta sin margen), pero **sí ve siempre la cuota comercial y la ganancia potencial** (ver "Ganancia potencial visible").
 - El margen de casa no es constante: varía por mercado y por run avanzada (puede subir como elemento de presión).
 - Sin investigación previa, las probabilidades tienen un rango visible pero impreciso (ej: "entre 40% y 70%"). La investigación inter-run colapsa ese rango hacia el valor real.
 
+### Ganancia potencial visible (feedback de playtest, run 1)
+Problema detectado: los mercados mostraban rango de probabilidad ("Gana Local 28%-49%") pero no cuánto se ganaría por apostar. En una casa de apuestas real el dato central que ve el apostador **no es la probabilidad, es la cuota y el pago**. La probabilidad es información de apoyo; la cuota es el gancho emocional. Sin ella, el loop se siente abstracto.
+
+**Comportamiento requerido:**
+- Cada mercado apostable muestra, además del porcentaje/rango de probabilidad, su **cuota comercial** (multiplicador, ej. "2.10") de forma clara y siempre visible antes de confirmar.
+- Al introducir un importe, la interfaz muestra en tiempo real la **ganancia potencial** de esa apuesta (importe × cuota), con formato tipo boleto: "Apuestas 100$ → devuelve 210$ (ganancia neta 110$)". Esto debe verse *antes* de confirmar, no después.
+- Cuando la probabilidad es un rango (sin investigación), la cuota también se presenta como rango, y la ganancia potencial se muestra como rango — la incertidumbre se traslada al número que al jugador le importa, reforzando el valor de la investigación inter-run.
+- Coherencia con el tono: la cuota se presenta con el mismo frío funcional de una casa real. La ganancia potencial no se celebra ni se decora — es un número más del boleto. La emoción la pone el jugador, no la UI.
+
+### Mercados que varían con el minuto del partido (feedback de playtest, run 1)
+Principio de diseño: los mercados disponibles y sus cuotas **cambian según el minuto en que va el partido**, como comportamiento general de todo el sistema — no solo dentro de un Momento Crazy. Un partido en el minuto 80 con 0-0 no puede ofrecer los mismos mercados ni las mismas cuotas que en el minuto 5.
+
+**Comportamiento requerido:**
+- Las cuotas de cada mercado **se recalculan en cada tick** a partir del estado vivo del partido (marcador, minuto, estadísticas). Un mercado que se vuelve más probable con el tiempo baja su cuota; uno que se vuelve improbable la sube. Esto ya estaba implícito en "probabilidades actualizadas cada tick", pero se fija ahora también para la cuota y la ganancia potencial.
+- Ciertos mercados **dejan de estar disponibles pasado cierto minuto** por lógica del propio mercado, no como restricción narrativa:
+  - "Primer goleador" deja de ofertarse una vez marcado el primer gol (ya está resuelto).
+  - "Resultado exacto" y "over/under" de umbrales ya imposibles se retiran cuando el marcador los vuelve inalcanzables (ej. over 3.5 en el minuto 88 con 0-0 desaparece o queda con cuota residual).
+  - En general: un mercado ya decidido o imposible no se oferta.
+- Esto es distinto de la restricción de mercados del **Momento Crazy** (que retira la opción cómoda de forma deliberada y narrativa) y de las **restricciones del domingo** (que retiran mercados por presión de fase). Los tres mecanismos coexisten: la variación por minuto es la capa base, siempre activa; Crazy y domingo se apilan encima.
+- Efecto de diseño buscado: el minuto del partido se vuelve una variable de decisión real. Apostar temprano da más mercados pero menos información; esperar da certeza pero menos cuotas jugosas y menos opciones.
+
+### Boleto vivo y feedback de resolución (feedback de playtest, run 1)
+Problema detectado: al apostar y resolverse la apuesta no hay ningún feedback — ni cuánto se ganó, ni cuánto falta para que se resuelva, ni si vas ganando o perdiendo mientras el partido corre. El loop se siente "siguiente, siguiente" sin retorno emocional. Esto ataca directamente el pilar "ilusión de control": el jugador debe *sentir* lo que apostó, no solo ejecutarlo.
+
+**Comportamiento requerido — apuesta abierta ("boleto vivo"):**
+- Toda apuesta abierta es visible en un panel de apuestas pendientes (ya previsto en "Presentación") con: mercado, importe, cuota fijada al apostar, ganancia potencial, y el **estado actual** de esa apuesta respecto al partido en curso.
+- El estado vivo indica si la apuesta **va camino de ganarse o perderse** con el marcador/estadísticas actuales (ej. verde "vas ganando esta" / rojo "vas perdiendo esta" / neutro "aún indeciso"), y **cuánto falta para su resolución** (minuto o tick en que se cierra). Esto convierte cada tick que avanza en tensión sobre las apuestas ya colocadas, no solo sobre la nueva apuesta obligatoria.
+
+**Comportamiento requerido — resolución:**
+- Cuando una apuesta se resuelve, debe haber un **feedback explícito e inmediato**: si se ganó (cuánto entró al saldo, con el número claro) o si se perdió (cuánto se perdió). El cambio de saldo debe ser legible y atribuible a esa apuesta concreta, no un salto silencioso del balance.
+- A diferencia del resto de la interfaz (deliberadamente fría y funcional en mercados/UI), el momento de resolución de una apuesta es la excepción: la dopamina debe ser **alta y consistente siempre**, en cualquier fase narrativa de la run, sin condicionarla ni degradarla con el tiempo — "esto es Crazy Weekend, el feedback debe ser loco". El silencio actual es el bug de diseño, no la falta de intensidad.
+- En fases narrativas avanzadas, este mismo feedback de resolución es un canal más de deterioro (coherente con "Arco narrativo"): el mensaje de resolución puede empezar a "hablarle" al jugador, igual que los comentarios de partido.
+
 ### Presentación
 - Interfaz de casas de apuestas real: diseño deliberadamente funcional y frío, estilo bwin — no "jugable".
-- El saldo visible en todo momento. Las apuestas pendientes también.
-- La hora actual visible en la interfaz.
+- El saldo visible en todo momento. Las apuestas pendientes también (ver "Boleto vivo y feedback de resolución").
+- La hora actual visible en la interfaz (gobierna el calendario escalonado — ver "Calendario de jornada").
 - Restricciones del domingo: ciertos mercados desaparecen, los márgenes de casa aumentan, algunas apuestas tienen stake mínimo obligatorio.
+
+### Principios de usabilidad de la interfaz (feedback de playtest, run 1)
+La interfaz debe ser *fría y funcional*, no *pobre e ilegible*. En el playtest se detectó texto solapado, nombres cortados y datos apretados. "Estilo bwin" significa denso y sobrio como una casa real — que son, de hecho, muy legibles y jerarquizadas. Estos principios rigen cualquier rediseño de UI (son dirección de UX, no diseño de pantallas pixel-perfect; el layout concreto es trabajo de implementación posterior). Referencia de inspiración: layouts de casas de apuestas reales tipo bwin (densidad de información sin solapamiento, jerarquía visual clara, dato clave siempre a la vista).
+
+**Reglas duras (nada de esto puede solaparse ni recortarse):**
+- El **log de comentarios/eventos del partido** nunca se solapa con las **estadísticas** (tiros, tarjetas, corners, faltas). Son dos zonas separadas del panel.
+- Los **nombres de partido / pestañas** no se recortan: si no caben, se abrevian con criterio (ej. "R. Madrileño vs Cádiz F.") o se reflowean, nunca se cortan a media palabra.
+- El **saldo** y la **hora actual** son elementos siempre visibles y nunca comprimidos hasta ser ilegibles — son los dos datos ancla de toda la pantalla.
+
+**Siempre visible sin interacción (sin necesidad de abrir menús):**
+- Saldo actual.
+- Hora actual / estado del calendario de jornada.
+- Apuestas abiertas y su estado vivo (al menos en forma resumida/contador).
+- Para el partido enfocado: marcador, minuto, y los mercados con su cuota y ganancia potencial.
+
+**Jerarquía de lectura:** primero el dato que dispara la decisión (cuota + ganancia potencial), después el de apoyo (probabilidad, estadísticas), después el narrativo (log de comentarios). El orden visual debe respetar esa jerarquía emocional.
 
 ---
 
@@ -345,11 +408,45 @@ La liga se regenera al inicio de cada nueva temporada (tras la jornada 38), pero
 - Estos datos son la fuente real de las probabilidades — el jugador no los ve directamente.
 - Con investigación inter-run el jugador desbloquea acceso parcial a estas estadísticas (no los números internos, sino indicadores: "el delantero centro lleva 3 goles en los últimos 4 partidos").
 
+### Semilla de equipos — esquema de la tabla de datos
+
+La fuente semilla del generador de liga (los 20 equipos base con su jerarquía) vive como CSV editable en Excel en `.ai-studio/memory/team-roster-seed.csv`. **Ese CSV es la fuente de verdad editable de los datos**; aquí solo se documenta el esquema (qué columnas existen y qué rango es válido) para Architect/Programmer. No se duplica la tabla completa en este documento — si cambian valores, se editan en el CSV.
+
+El generador semi-aleatorio (ver "Generación") toma estos 20 equipos como plantilla base: aplica ruido controlado sobre los atributos y reordena. El único suelo duro que respeta es el de los equipos `Estrella` (`is_star_team=TRUE`): esos 3 no bajan nunca y arrancan generalmente arriba (para que "peso hacia equipos estrella" sea reproducible, no puro azar). El resto de etiquetas de `tier` son solo punto de partida y el ruido puede moverlas en cualquier dirección (ver aclaración abajo). El algoritmo concreto es trabajo de Architect.
+
+**Aclaración clave — `tier`/`is_star_team` son punto de partida, no jerarquía rígida (salvo Estrella):**
+En la tabla semilla, `tier` e `is_star_team` describen dónde arranca cada equipo, no dónde va a terminar la temporada. Solo los 3 equipos `Estrella` (los que tienen `is_star_team=TRUE`) tienen un **suelo duro garantizado por el generador**: nunca dejan de estar arriba, nunca pelean el descenso. `Europa` y `Media` son **puntos de partida probabilísticos** que la generación semi-aleatoria de cada temporada (ver "Generación", el ruido ya descrito) puede mover hacia arriba o hacia abajo: un equipo `Europa` puede acabar peleando el descenso, y un equipo `Media` puede acabar peleando plazas europeas o incluso el título. Esa volatilidad es intencionada y no rompe la jerarquía de los 3 `Estrella`, que se mantiene como ancla estable por encima del ruido. Ya no existe un `tier` `Descenso`: la pelea por el descenso no es una etiqueta fija de equipos concretos, sino algo que le puede pasar cada temporada a cualquier equipo que no sea `Estrella`.
+
+El CSV en `.ai-studio/memory/team-roster-seed.csv` es la fuente de verdad editable de los valores; este documento solo fija el esquema y las reglas.
+
+| Columna | Significado | Rango válido |
+|---|---|---|
+| `team_id` | Identificador interno estable (slug snake_case). Nunca visible al jugador. | string único, snake_case |
+| `display_name` | Nombre ficticio mostrado en UI (distorsión de un equipo real de LaLiga). | string |
+| `inspiration_ref` | **Nota de producción, NO dato de juego**: equipo real de LaLiga que inspira el nombre/perfil. Existe solo para que el Director sea consistente al rellenar la tabla. No se importa al motor. | string (nombre real) |
+| `tier` | Etiqueta de punto de partida en la tabla semilla (ver aclaración abajo). Solo `Estrella` es una garantía dura; `Europa` y `Media` son puntos de partida probabilísticos. | `Estrella` \| `Europa` \| `Media` |
+| `offense` | Capacidad ofensiva. Alimenta goles a favor esperados. | 0.0–1.0 |
+| `defense` | Solidez defensiva. Alimenta goles en contra esperados. | 0.0–1.0 |
+| `current_form` | Forma actual (valor semilla inicial de campaña). El motor la recalcula jornada a jornada; el CSV solo fija el arranque. | 0.0–1.0 |
+| `home_advantage` | Factor local, constante por equipo (no cambia jornada a jornada). | 0.0–1.0 |
+| `is_star_team` | Flag de suelo duro. TRUE = el generador lo protege como cabeza de liga permanente (nunca baja, generalmente arriba). Solo los 3 `Estrella` lo tienen. | `TRUE` \| `FALSE` |
+
+Distribución de la semilla actual (punto de partida, no resultado garantizado): 3 equipos `Estrella` con suelo duro (siempre arriba), un bloque amplio de 7 `Europa` y 10 `Media`. Los equipos `Europa` y `Media` arrancan en esa banda pero cada temporada el ruido puede reordenarlos por completo hacia arriba o hacia abajo (ver aclaración arriba). La brecha de atributos entre los `Estrella` y los equipos más débiles de la semilla es deliberadamente grande (ej. offense 0.95 vs 0.38) para que un favorito claro en casa produzca la banda alta y estrecha que pide la sección "Jerarquía de equipos debe percibirse".
+
 ### Cómo informan las probabilidades
 - El motor calcula probabilidades base a partir de los atributos + historial de jornadas anteriores.
 - Sin investigación: el jugador ve rangos anchos ("entre 40% y 65%").
 - Con investigación máxima: el jugador ve el valor calculado con ±5% de ruido.
 - El margen de casa se aplica siempre por encima del valor calculado.
+
+### Jerarquía de equipos debe percibirse (aclaración por playtest, run 1)
+Esto **no es diseño nuevo** — el principio "peso hacia equipos estrella para que haya jerarquía reconocible" ya está fijado arriba en "Generación". El playtest reveló un problema de *implementación/tuning*: un equipo top como "Real Madrileño" jugando en casa contra un equipo débil ("Cádiz" ficticio) mostraba un rango de "Gana Local" demasiado amplio y bajo, sin jerarquía perceptible.
+
+**Comportamiento esperado (para que Architect/Programmer calibren el generador y el cálculo de probabilidades):**
+- Un equipo estrella en casa contra un equipo claramente inferior debe producir una probabilidad de victoria local **alta y consistente** (rango estrecho y en la parte alta), reflejando la jerarquía que un jugador de fútbol reconoce sin pensar. La banda del favorito claro no debería sentirse como un cara-o-cruz.
+- La amplitud del rango mostrado depende de la investigación (menos investigación = rango más ancho), pero **incluso el rango ancho debe estar centrado en el valor correcto**: un favorito clarísimo con poca investigación puede mostrar "58%-78%", no "28%-49%". El rango ancho expresa incertidumbre del jugador, no borra la jerarquía real del partido.
+- La diferencia de atributos entre equipos estrella y equipos débiles debe ser lo bastante grande como para que estos emparejamientos desiguales sean legibles como tales. Si el generador produce ligas demasiado planas, se pierde la ancla de credibilidad futbolística de todo el juego.
+- Balance abierto para Architect: los porcentajes concretos y la curva atributo→probabilidad son tuning; este documento fija que la jerarquía **tiene que notarse en pantalla**, no solo existir en los datos internos.
 
 ### Standings y estadísticas visibles
 - Tabla de posiciones actualizada después de cada jornada.
@@ -387,6 +484,34 @@ El número de run determina la fase. Las transiciones son graduales, no hay cut 
 
 ---
 
+## Features de alcance mayor — candidatas a Épica/Historia (para Coordinator)
+
+Estas dos surgen del playtest, tienen alcance considerable y **no deben inventarse aquí como historias técnicas** — se documenta el principio de diseño y se señala que Coordinator debe evaluarlas y priorizarlas como trabajo nuevo.
+
+### A. Log de eventos por partido (feedback punto 6)
+Estado actual (problema): solo se muestra la última línea de comentario del tick ("El partido sigue su curso, 0-0"), suelta, solapada con las estadísticas, y sin contar una historia.
+
+Principio de diseño: cada partido debe tener un **log de eventos cronológico consultable**, no solo la última frase. El log combina el marcador con una lista de eventos con su minuto: "min 23 remate a puerta de Seviya FC", "min 40 tarjeta amarilla", "min 67 gol", etc. Esto:
+- Da textura narrativa al partido (coherente con "los comentarios son el canal narrativo principal" — el log es su forma persistente).
+- Deja rastro para que el jugador entienda *por qué* las cuotas se movieron (conecta con "mercados que varían con el minuto").
+- Es un lienzo natural para el deterioro narrativo de fases avanzadas (eventos que no deberían existir empiezan a aparecer en el log).
+- Debe vivir en un panel propio dentro del partido, separado de las estadísticas (ver "Principios de usabilidad").
+
+Nota para Coordinator: candidata a Historia/Épica. Interactúa con el motor de simulación de partido (generación de eventos discretos con minuto) y con la UI del panel de partido. No trivial.
+
+### B. Plantillas, lesiones y sanciones consultables (feedback punto 8)
+Estado actual: los datos de equipos/jugadores existen internamente para calcular probabilidades (ver "Datos de equipos y jugadores"), pero no son consultables en detalle por el jugador.
+
+Principio de diseño: el jugador debe poder **consultar en detalle** plantillas de equipos, jugadores ficticios, lesiones y sanciones, y ver la temporada simulada con profundidad, no solo el resultado agregado. Esto refuerza la ilusión de habilidad/control (pilar 1): cuanto más puede investigar, más siente que domina un sistema. Conecta con la investigación inter-run como la palanca que va destapando ese detalle progresivamente.
+
+Alcance / prioridad: el propio Director lo marca como **no urgente ahora, a futuro**. Es una expansión de la fase inter-run y del modelo de datos de liga. Candidata a Épica de medio plazo.
+
+Nota para Coordinator: candidata a Épica futura, explícitamente no prioritaria para el MVP inmediato según el Director. Documentar en roadmap, no abrir historia todavía salvo indicación.
+
+---
+
 ## Preguntas de diseño abiertas
 
 1. **Riesgo de diversión — ritmo del viernes**: la entrada 15 minutos antes del primer partido puede no ser suficientemente tensa. Alternativa en consideración: mostrar partidos en directo en lugar de sistema de ticks. Requiere prototipo para validar cuál genera más tensión. (Pendiente de prototipo — sin resolver a propósito.)
+
+Las preguntas pendientes del playtest run 1 (rango de cuota, estado vivo de la apuesta, jerarquía de equipos, prioridad relativa) ya fueron confirmadas por el Director Creativo en conversación: cuota calculada de forma coherente desde la probabilidad + margen de casa sin rango fijo, estado vivo siempre visible sin condicionarlo a investigación, jerarquía resuelta con datos reales en `team-roster-seed.csv`, y prioridad E.7/E.8 → D.6 → D.7/E.9 ya reflejada en `roadmap.md` y `backlog.md`.

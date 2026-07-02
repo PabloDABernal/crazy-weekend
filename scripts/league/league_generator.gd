@@ -27,7 +27,7 @@ static func generate_teams(rng: RandomNumberGenerator) -> Array[TeamDef]:
 	var shuffled_indices: Array[int] = []
 	for i in range(TEAM_NAME_POOL.size()):
 		shuffled_indices.append(i)
-	_shuffle_array(shuffled_indices, rng)
+	ArrayUtils.shuffle(shuffled_indices, rng)
 
 	var star_indices: Array[int] = shuffled_indices.slice(0, LeagueRules.STAR_TEAM_COUNT)
 
@@ -91,7 +91,9 @@ static func _generate_avg_goals(position: PlayerDef.Position, rng: RandomNumberG
 ## Algoritmo de round-robin estándar (círculo de rotación, 1 equipo fijo + resto rotando) para 38
 ## jornadas (19 ida + 19 vuelta) con 20 equipos, garantizando que cada equipo juega exactamente una
 ## vez por jornada. Ver .ai-studio/specs/epic-d-liga-y-partidos.md sección 2.3.
-static func generate_calendar(teams: Array[TeamDef], season_number: int) -> Array[MatchdayFixture]:
+## D.6: además asigna horario (MatchdayScheduler.build_schedule) a cada jornada generada, para que el
+## horario sea estable por temporada (mismo rng_seed -> mismo calendario y mismos horarios).
+static func generate_calendar(teams: Array[TeamDef], season_number: int, rng: RandomNumberGenerator) -> Array[MatchdayFixture]:
 	var team_ids: Array[StringName] = []
 	for team in teams:
 		team_ids.append(team.team_id)
@@ -134,6 +136,7 @@ static func generate_calendar(teams: Array[TeamDef], season_number: int) -> Arra
 			var matchday := MatchdayFixture.new()
 			matchday.matchday_index = matchday_index
 			matchday.matches = matches
+			MatchdayScheduler.build_schedule(matchday, rng)
 			calendar.append(matchday)
 
 			matchday_index += 1
@@ -141,14 +144,6 @@ static func generate_calendar(teams: Array[TeamDef], season_number: int) -> Arra
 			rotating.push_front(rotating.pop_back())
 
 	return calendar
-
-
-static func _shuffle_array(array: Array, rng: RandomNumberGenerator) -> void:
-	for i in range(array.size() - 1, 0, -1):
-		var j: int = rng.randi_range(0, i)
-		var tmp = array[i]
-		array[i] = array[j]
-		array[j] = tmp
 
 
 static func _slugify(display_name: String) -> StringName:

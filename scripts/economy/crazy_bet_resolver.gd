@@ -33,10 +33,14 @@ static func compute_forced_amount(current_money: int, percentage: CrazyBetContex
 	return int(ceil(raw_amount))
 
 
-## Selecciona 1-2 mercados disponibles excluyendo siempre el de mayor confidence.
-## Si hay empate de mayor confidence, se excluyen todos los empatados si al hacerlo sigue quedando
-## al menos 1 mercado disponible; si excluir todos los empatados deja 0 mercados, se excluye solo
-## uno de ellos (elegido por rng) para garantizar CRAZY_BET_MIN_ALLOWED_MARKETS.
+## Selecciona 1-2 MERCADOS DISTINTOS disponibles excluyendo siempre el de mayor confidence.
+## Opera sobre el conjunto de market_id distintos presentes en `available` (que trae una entrada por
+## OPCIÓN apostable, no por mercado -- p. ej. 3 MarketOffer para "1x2", una por option_key) para no
+## colapsar `allowed` en copias del mismo mercado (fix Bug 1, §7.2). La confidence representativa de
+## cada mercado es la máxima entre sus opciones.
+## Si hay empate de mayor confidence, se excluyen todos los mercados empatados si al hacerlo sigue
+## quedando al menos 1 mercado disponible; si excluir todos los empatados deja 0 mercados, se excluye
+## solo uno de ellos (elegido por rng) para garantizar CRAZY_BET_MIN_ALLOWED_MARKETS.
 static func select_restricted_markets(available: Array[MarketOffer], rng: RandomNumberGenerator) -> Dictionary:
 	# Precondición: siempre hay al menos un mercado disponible en un tick (el sistema de partidos,
 	# fuera de alcance de Épica B, garantiza esto). Sin al menos un mercado no hay tick de apuesta
@@ -44,35 +48,46 @@ static func select_restricted_markets(available: Array[MarketOffer], rng: Random
 	# a partir de una lista vacía.
 	assert(not available.is_empty(), "select_restricted_markets requiere al menos un MarketOffer disponible")
 
+	# Confidence representativa por market_id (máxima entre sus opciones) y orden de primera aparición,
+	# para una salida determinista sin depender del orden de inserción de un Dictionary.
+	var confidence_by_market: Dictionary = {}   # market_id (StringName) -> float
+	var market_order: Array[StringName] = []
+	for offer in available:
+		if not confidence_by_market.has(offer.market_id):
+			confidence_by_market[offer.market_id] = offer.confidence
+			market_order.append(offer.market_id)
+		elif offer.confidence > confidence_by_market[offer.market_id]:
+			confidence_by_market[offer.market_id] = offer.confidence
+
 	var highest_confidence: float = -1.0
-	for market in available:
-		if market.confidence > highest_confidence:
-			highest_confidence = market.confidence
+	for market_id in market_order:
+		if confidence_by_market[market_id] > highest_confidence:
+			highest_confidence = confidence_by_market[market_id]
 
-	var tied_for_highest: Array[MarketOffer] = []
-	for market in available:
-		if is_equal_approx(market.confidence, highest_confidence):
-			tied_for_highest.append(market)
-
-	var excluded_markets: Array[MarketOffer] = []
-	var remaining_after_exclusion: int = available.size() - tied_for_highest.size()
-
-	if remaining_after_exclusion >= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
-		excluded_markets = tied_for_highest
-	else:
-		# Excluir a todos los empatados dejaría 0 (o menos del mínimo) mercados disponibles:
-		# se excluye solo uno de ellos, elegido por rng.
-		var random_index: int = rng.randi_range(0, tied_for_highest.size() - 1)
-		excluded_markets = [tied_for_highest[random_index]]
+	var tied_for_highest: Array[StringName] = []
+	for market_id in market_order:
+		if is_equal_approx(confidence_by_market[market_id], highest_confidence):
+			tied_for_highest.append(market_id)
 
 	var excluded_ids: Array[StringName] = []
-	for market in excluded_markets:
-		excluded_ids.append(market.market_id)
+	var remaining_after_exclusion: int = market_order.size() - tied_for_highest.size()
+
+	if market_order.size() <= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
+		# No hay margen para excluir nada sin violar CRAZY_BET_MIN_ALLOWED_MARKETS:
+		# se permiten todos los mercados disponibles y no se excluye ninguno.
+		excluded_ids = []
+	elif remaining_after_exclusion >= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
+		excluded_ids = tied_for_highest
+	else:
+		# Excluir a todos los mercados empatados dejaría 0 (o menos del mínimo) mercados disponibles:
+		# se excluye solo uno de ellos, elegido por rng.
+		var random_index: int = rng.randi_range(0, tied_for_highest.size() - 1)
+		excluded_ids = [tied_for_highest[random_index]]
 
 	var allowed: Array[StringName] = []
-	for market in available:
-		if not excluded_ids.has(market.market_id):
-			allowed.append(market.market_id)
+	for market_id in market_order:
+		if not excluded_ids.has(market_id):
+			allowed.append(market_id)
 			if allowed.size() >= EconomyRules.CRAZY_BET_MAX_ALLOWED_MARKETS:
 				break
 

@@ -1,0 +1,21 @@
+team_id,display_name,inspiration_ref,tier,offense,defense,current_form,home_advantage,is_star_team
+real_madrileno,Real Madrileño,Real Madrid,Estrella,0.95,0.92,0.85,0.80,TRUE
+fc_barceloneta,FC Barceloneta,FC Barcelona,Estrella,0.92,0.85,0.80,0.78,TRUE
+atletico_madriz,Atlético de Madriz,Atlético de Madrid,Estrella,0.82,0.90,0.78,0.76,TRUE
+gironella,Gironella CF,Girona,Europa,0.80,0.70,0.82,0.68,FALSE
+athletic_bilbo,Athletic de Bilbo,Athletic Club,Europa,0.74,0.76,0.75,0.74,FALSE
+real_socieda,Real Sociedá,Real Sociedad,Europa,0.72,0.72,0.68,0.66,FALSE
+real_betiko,Real Bétiko,Real Betis,Europa,0.70,0.65,0.64,0.67,FALSE
+villarrial,Villarrial CF,Villarreal,Europa,0.71,0.66,0.62,0.64,FALSE
+valencia_naranja,Valencia Naranja,Valencia,Europa,0.66,0.64,0.58,0.66,FALSE
+seviya,Seviya FC,Sevilla,Europa,0.64,0.63,0.55,0.65,FALSE
+club_osasona,Club Osasona,Osasuna,Media,0.60,0.66,0.60,0.72,FALSE
+rayo_vallekano,Rayo Vallekano,Rayo Vallecano,Media,0.58,0.60,0.57,0.68,FALSE
+celtina_vigo,Celtiña de Vigo,Celta de Vigo,Media,0.62,0.55,0.54,0.62,FALSE
+getafre,Getafre CF,Getafe,Media,0.52,0.68,0.56,0.66,FALSE
+mallorquin,RCD Mallorquín,RCD Mallorca,Media,0.55,0.62,0.53,0.63,FALSE
+alavista,Deportivo Alavista,Deportivo Alavés,Media,0.54,0.58,0.52,0.61,FALSE
+las_palmeras,UD Las Palmeras,UD Las Palmas,Media,0.50,0.50,0.45,0.55,FALSE
+almerio,UD Almerío,UD Almería,Media,0.42,0.40,0.35,0.52,FALSE
+grana,Graná CF,Granada,Media,0.40,0.43,0.38,0.50,FALSE
+cadil,Cádil CF,Cádiz,Media,0.38,0.45,0.36,0.54,FALSE

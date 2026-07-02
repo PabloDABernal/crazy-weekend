@@ -36,7 +36,7 @@ func generate_new_league(season_number: int, rng_seed: int) -> void:
 	current_matchday_index = 0
 
 	teams = LeagueGenerator.generate_teams(_rng)
-	calendar = LeagueGenerator.generate_calendar(teams, season_number)
+	calendar = LeagueGenerator.generate_calendar(teams, season_number, _rng)
 
 	standings = {}
 	for team in teams:

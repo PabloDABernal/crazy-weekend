@@ -6,6 +6,12 @@ class_name PendingBetsTracker extends Node
 ## Ver .ai-studio/specs/epic-e-pantalla-de-apuestas.md sección 4.
 
 signal pending_bets_changed(pending: Array[PendingBet])
+## Señal propia de la UI de apuestas (E.8), no cruza épicas -- distinta de
+## EventBus.market_bet_resolved (contrato de Épica A, que no lleva importe). Consumida por
+## BettingRoot para disparar el feedback enérgico de resolución.
+## payout = dinero acreditado (0 si perdida). El stake vive en pending_bet.stake.
+## Ver .ai-studio/specs/story-e8-boleto-vivo.md sección 4.
+signal bet_resolved(pending_bet: PendingBet, won: bool, payout: int)
 
 var _pending: Array[PendingBet] = []
 
@@ -69,62 +75,21 @@ func _resolve_single_bet(pending_bet: PendingBet, match_state: MatchTickState, m
 		pending_bet.market_offer, won, match_state, matchday_id, RunState.run_number,
 	)
 
+	var payout: int = 0
 	if won:
-		var payout: int = PayoutCalculator.compute_payout(pending_bet)
+		payout = PayoutCalculator.compute_payout(pending_bet)
 		RunState.set_money(RunState.get_money() + payout, "bet_resolved")
 
 	EventBus.market_bet_resolved.emit(result)
+	bet_resolved.emit(pending_bet, won, payout)
 
 
 ## Deriva si la opción apostada resultó ganadora, comparando market_offer.option_key contra el
 ## resultado real ya contenido en match_state. Se asume match_state en su estado FINAL (minuto 90)
 ## para todos los mercados salvo first_scorer (que puede resolverse antes, ver is_market_resolved_this_tick).
+## Delega en LiveBetEvaluator.evaluate (E.8) -- misma tabla de reglas que el estado vivo, para no
+## duplicar criterios (ver .ai-studio/specs/story-e8-boleto-vivo.md sección 2). Como esta función solo
+## se invoca cuando is_market_resolved_this_tick ya dio true, el match_state pasado siempre corresponde
+## a un estado ya decidible para ese market_id, así que evaluate() nunca devuelve UNDECIDED aquí.
 func _is_bet_won(market_offer: MarketOffer, match_state: MatchTickState) -> bool:
-	var market_id: StringName = market_offer.market_id
-	var option_key: String = String(market_offer.option_key)
-
-	if market_id == &"1x2":
-		if match_state.home_goals > match_state.away_goals:
-			return option_key == "home"
-		elif match_state.home_goals < match_state.away_goals:
-			return option_key == "away"
-		else:
-			return option_key == "draw"
-
-	if market_id == &"btts":
-		var both_scored: bool = match_state.home_goals > 0 and match_state.away_goals > 0
-		if option_key == "over":
-			return both_scored
-		else:
-			return not both_scored
-
-	if market_id == &"goals_ou_1_5" or market_id == &"goals_ou_2_5" or market_id == &"goals_ou_3_5":
-		var total_goals: int = match_state.home_goals + match_state.away_goals
-		var over: bool = float(total_goals) > market_offer.threshold_display
-		if option_key == "over":
-			return over
-		else:
-			return not over
-
-	if market_id == &"cards_ou":
-		var total_cards: int = match_state.cards_home + match_state.cards_away
-		var over: bool = float(total_cards) > market_offer.threshold_display
-		if option_key == "over":
-			return over
-		else:
-			return not over
-
-	if market_id == &"fouls_ou":
-		var total_fouls: int = match_state.fouls_home + match_state.fouls_away
-		var over: bool = float(total_fouls) > market_offer.threshold_display
-		if option_key == "over":
-			return over
-		else:
-			return not over
-
-	if market_id == &"first_scorer":
-		if match_state.goal_scorers.is_empty():
-			return false
-		return String(match_state.goal_scorers[0]) == option_key
-
-	return false
+	return LiveBetEvaluator.evaluate(market_offer, match_state) == LiveBetEvaluator.LiveStatus.WINNING

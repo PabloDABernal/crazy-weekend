@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scenes/betting/betting_root.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/betting/match_simulation_service.tscn" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/betting/crazy_moment_overlay.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/betting/tutorial_overlay.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/betting/run_end_screen.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/betting/resolution_feedback_overlay.tscn" id="9"]
 
 [node name="BettingRoot" type="Control"]
 layout_mode = 3
@@ -146,3 +147,5 @@ text = "Continuar →"
 [node name="TutorialOverlay" parent="." instance=ExtResource("7")]
 
 [node name="RunEndScreen" parent="." instance=ExtResource("8")]
+
+[node name="ResolutionFeedbackOverlay" parent="." instance=ExtResource("9")]
