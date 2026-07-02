@@ -164,3 +164,60 @@ flowchart TD
 Jornada normal (STAGGERED): kickoffs escalonados con ventanas de predominio 1-2 LIVE, siempre ≥1 partido a
 las 0 min. Al menos un tipo de jornada especial (CONCENTRATED) con varios/todos los partidos compartiendo
 kickoff. Ningún límite fijo/hardcodeado de solapamiento. El reloj gobierna arranque/fin de partidos.
+
+## 11. Decisiones post-implementación (Architect, tras commit `89671cb`)
+
+Programmer implementó la spec y levantó 2 puntos para decidir. Revisado el código real
+(`match_simulation_service.gd`, `matchday_scheduler.gd`, `betting_root.gd`, `run_state.gd`,
+`crazy_moment_scheduler.gd`, `league_rules.gd`). Confirmado además que el dedupe del Momento Crazy quedó
+reclavado a `(day, clock_cycle)` en `RunState._crazy_moment_triggered_day/_clock_cycle`, poblado desde
+`BetTickContext.clock_cycle` (= `_clock_minutes / MATCH_MINUTES_PER_TICK`, ciclo de reloj GLOBAL), NO desde
+`tick_index_in_day` — exactamente el contrato de §9. Correcto.
+
+### 11.1 Punto 1 — rango de ticks del sorteo del Momento Crazy con relojes escalonados — DECIDIDO: NO recalibrar
+
+**Decisión: `EconomyRules.TICKS_PER_DAY` (=6) y `CRAZY_MOMENT_MIN_TICK_INDEX` (=1) se mantienen intactas. No
+hace falta cambio de código.** El sorteo ya funciona correctamente porque opera sobre `clock_cycle` de forma
+independiente del contenido de esas constantes, y el rango sorteado `[1, 5]` está **garantizado cubierto**:
+
+- El sorteo elige un `clock_cycle` en `[CRAZY_MOMENT_MIN_TICK_INDEX .. TICKS_PER_DAY-1]` = `[1, 5]`.
+- La invariante de arranque (§4.1, implementada y con test en `assign_staggered_offsets`) garantiza siempre
+  ≥1 partido con offset 0. Ese partido está LIVE en los ciclos de reloj 0..5 (tick 0 en ciclo 0, ..., tick 5
+  en ciclo 5, FINISHED en ciclo 6). Por tanto, en cualquier ciclo sorteado de `[1, 5]` hay siempre ≥1 partido
+  LIVE que emite `bet_tick_opened` con ese `clock_cycle` → el Momento Crazy **siempre dispara**. No hay
+  bloqueo ni disparo silencioso. Esto vale igual para CONCENTRATED (todos offset 0, LIVE en ciclos 0..5).
+
+**Coste conocido y aceptado:** con kickoffs muy escalonados, un día puede extenderse hasta el ciclo ~13
+(offset 105 → LIVE ciclos 7..12). Como el sorteo tope es 5, el Momento Crazy **nunca cae en la cola tardía**
+de la jornada. Eso es una elección de balance/cobertura, no un bug: es seguro y determinista. Se acepta para
+D.6.
+
+**Restricción para cualquier futura ampliación (nota para Game Designer):** si en el futuro se quisiera que el
+Crazy pueda caer también en la cola escalonada, NO basta con subir `TICKS_PER_DAY`. Subir el tope numérico a
+ciegas reintroduce un riesgo tipo Bug 1: un ciclo alto sorteado (p. ej. 10) puede no tener ningún partido LIVE
+para ciertas distribuciones de offsets → `bet_tick_opened` nunca se emite en ese ciclo → el Crazy se pierde en
+silencio. Cualquier ampliación debe sortear **entre los ciclos realmente ocupados** (los que tienen ≥1 partido
+LIVE), no sobre un rango numérico crudo. Eso es una historia de balance separada (Game Designer + Architect),
+fuera del scope de D.6. El comentario que Programmer dejó en `crazy_moment_scheduler.gd` queda vigente como
+puntero a esta decisión. **No reabrir Programmer.**
+
+### 11.2 Punto 2 — día vacío en jornada CONCENTRATED — RECOMENDACIÓN: consultar al Director (decisión de producto)
+
+Programmer implementó que `BettingRoot._start_day_and_countdown` salte automáticamente y **de forma instantánea**
+un día sin partidos (`_on_matchday_finished(-1)` en cascada: viernes vacío → sábado vacío → domingo con todos
+los partidos), sin countdown ni gate.
+
+**Valoración técnica (Architect): el comportamiento implementado es correcto y es el default seguro.** Respeta
+la invariante anti-bloqueo que motivó el Bug 1 (nunca dejar al jugador esperando una apuesta obligatoria que no
+puede llegar). No hay ambigüedad técnica que resolver aquí: cualquier alternativa (pantalla de descanso) se
+apoyaría igualmente sobre este mismo salto, solo añadiendo una pausa cosmética antes.
+
+**Esto es genuinamente una decisión de sensación/ritmo (producto), no técnica.** Si el "Super Sunday" debe
+sentirse como un evento —con una pantalla explícita tipo *"No hay partidos hoy. El fin de semana se juega
+entero el domingo."* que construya anticipación— o si el salto instantáneo y silencioso es lo deseado, es una
+llamada del Director / Game Designer, no del Architect. **Recomiendo trasladar la pregunta al Director.**
+
+Recomendación por defecto mientras tanto: **mantener el salto instantáneo tal cual está** (shipped, correcto,
+no bloquea). Si el Director quiere la pantalla de descanso, es un pulido de UX que encaja en Épica E (misma
+capa que el estado por partido del `MatchSelector`, §7 / punto 3), no una reapertura de D.6. **No reabrir
+Programmer por esto salvo que el Director lo pida.**
