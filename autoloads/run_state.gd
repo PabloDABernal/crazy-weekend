@@ -16,6 +16,14 @@ var crazy_moment_schedule: Array[CrazyMomentScheduler.ScheduledCrazyMoment] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _run_ended: bool = false
 
+## Dedupe de disparo de Momento Crazy por tick (fix Bug 1, §7.1): bet_tick_opened se emite una vez por
+## cada partido vivo del día, todos con el mismo (day, tick_index_in_day) cuando el tick es Crazy.
+## Sin este recuerdo, _on_bet_tick_opened construiría y emitiría un CrazyBetContext distinto (re-sorteado)
+## por cada partido, violando el contrato de "un único CrazyBetContext por tick" (epic-e §3.4 / epic-b B.3).
+## -1 = todavía no se disparó ningún Momento Crazy en la run activa.
+var _crazy_moment_triggered_day: int = -1
+var _crazy_moment_triggered_tick_index: int = -1
+
 
 func _ready() -> void:
 	_rng.randomize()
@@ -31,6 +39,8 @@ func start_new_run() -> void:
 	current_day = BettingDay.Day.FRIDAY
 	current_tick_index = 0
 	_run_ended = false
+	_crazy_moment_triggered_day = -1
+	_crazy_moment_triggered_tick_index = -1
 
 	var phase: NarrativePhase.Phase = NarrativePhase.get_current_phase()
 	crazy_moment_schedule = CrazyMomentScheduler.build_schedule_for_run(phase, _rng)
@@ -76,8 +86,17 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 		end_run(result)
 		return
 
-	# B.4: ¿el tick actual coincide con algún slot planificado de Momento Crazy?
-	if CrazyMomentScheduler.is_crazy_moment_tick(crazy_moment_schedule, current_day, current_tick_index):
+	# B.4: ¿el tick actual coincide con algún slot planificado de Momento Crazy? Se dispara como máximo
+	# una vez por (day, tick_index_in_day): advance_tick() emite bet_tick_opened una vez por cada
+	# partido vivo del día, todos con el mismo tick_index_in_day, así que sin este dedupe este bloque
+	# se ejecutaría N veces por tick (fix Bug 1, §7.1).
+	var already_triggered_this_tick: bool = (
+		_crazy_moment_triggered_day == int(current_day)
+		and _crazy_moment_triggered_tick_index == current_tick_index
+	)
+	if not already_triggered_this_tick and CrazyMomentScheduler.is_crazy_moment_tick(crazy_moment_schedule, current_day, current_tick_index):
+		_crazy_moment_triggered_day = int(current_day)
+		_crazy_moment_triggered_tick_index = current_tick_index
 		var phase: NarrativePhase.Phase = NarrativePhase.get_current_phase()
 		var crazy_bet: CrazyBetContext = CrazyBetResolver.build_context(current_money, phase, context.available_markets, _rng)
 		EventBus.crazy_moment_triggered.emit(crazy_bet)

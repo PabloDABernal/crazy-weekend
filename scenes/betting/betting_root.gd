@@ -249,21 +249,38 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 
 
 ## Delega a CrazyMomentOverlay y notifica a TODOS los MatchPanel activos (el Crazy Bet aplica al tick
-## global, no solo al partido enfocado -- sección 3.4 de la spec).
+## global, no solo al partido enfocado -- sección 3.4 de la spec). Se pasa literalmente el mismo
+## CrazyBetContext (misma instancia, no una copia) a cada panel, para que BettingRoot y todos los
+## MatchPanel/MarketWidget evalúen siempre el mismo contexto vigente (fix Bug 1, §7.3: fuente única de
+## verdad del Crazy Bet -- combinado con el dedupe de RunState (§7.1) elimina la posibilidad de que
+## dos partes del árbol de escena diverjan sobre qué contexto está activo).
 func _on_crazy_moment_triggered(crazy_bet: CrazyBetContext) -> void:
-	_active_crazy_bet = crazy_bet
-	_crazy_bet_resolved_this_tick = false
+	_activate_crazy_bet(crazy_bet)
 	_crazy_moment_overlay.show_crazy_moment(crazy_bet)
 	for panel in _match_panels.values():
 		panel.apply_crazy_moment_restriction(crazy_bet)
 
 
 func _on_crazy_moment_ended() -> void:
-	_active_crazy_bet = null
-	_crazy_bet_resolved_this_tick = false
+	_deactivate_crazy_bet()
 	_crazy_moment_overlay.hide_crazy_moment()
 	for panel in _match_panels.values():
 		panel.clear_crazy_moment_restriction()
+
+
+## Único punto que activa un Momento Crazy: `_active_crazy_bet` y `_crazy_bet_resolved_this_tick`
+## cambian siempre juntos (fix Bug 1, §6/§7.3 -- antes se mutaban por separado en varios sitios,
+## acoplamiento frágil que bastaba con reordenar para romper).
+func _activate_crazy_bet(crazy_bet: CrazyBetContext) -> void:
+	_active_crazy_bet = crazy_bet
+	_crazy_bet_resolved_this_tick = false
+
+
+## Único punto que desactiva el Momento Crazy vigente (fin de Crazy resuelto, o cambio de ciclo/día).
+## Misma garantía que _activate_crazy_bet: ambos campos cambian siempre juntos.
+func _deactivate_crazy_bet() -> void:
+	_active_crazy_bet = null
+	_crazy_bet_resolved_this_tick = false
 
 
 ## Fin de la jornada del día actual (viernes o sábado): transición al día siguiente. No implica fin
@@ -282,7 +299,7 @@ func _on_matchday_finished(_matchday_index: int) -> void:
 
 func _advance_to_next_day(day: BettingDay.Day) -> void:
 	_matches_with_tick_open_this_cycle.clear()
-	_crazy_bet_resolved_this_tick = false
+	_deactivate_crazy_bet()
 	_start_day(day)
 	_start_landing_countdown()
 
@@ -330,7 +347,11 @@ func request_advance_tick() -> void:
 		return
 
 	_matches_with_tick_open_this_cycle.clear()
-	_crazy_bet_resolved_this_tick = false
+	# Blindaje del gate (fix Bug 1, §7.3): request_advance_tick() solo se ejecuta si
+	# _all_matches_satisfied_this_cycle() ya dio true, lo que exige que cualquier Crazy Bet del ciclo
+	# saliente ya esté resuelto (_active_crazy_bet == null, ver _on_match_panel_bet_confirmed). Se
+	# desactiva explícitamente aquí de todos modos para no depender de ese camino como único garante.
+	_deactivate_crazy_bet()
 	_match_selector.clear_bet_requirement_marks()
 	_refresh_global_continue_state()
 	_match_simulation_service.advance_tick()
