@@ -206,8 +206,148 @@ Los tests automatizados en `tests/betting/` (ejecutables con Godot) validan la a
 - Over/under bloqueado en WINNING después de que el evento ya ocurrió (debería seguir siendo WINNING, no cambiar).
 - Overlay de feedback bloqueando input o desapareciendo demasiado rápido.
 - Feedback con intensidad reducida en fases narrativas 3–4 (debería ser igual en todas las fases).
+## 7. D.7 y E.9 — Retirada dinámmica de mercados por minuto y UI actualizada
 
-## 7. Fuera de alcance de esta primera ronda de pruebas
+Los tests automatizados en `tests/` (ejecutables con Godot) validan la lógica de `MarketAvailabilityResolver` (decisiones de retirada) e integración con `MatchPanel`; esta sección documenta casos de integración UI y comportamiento en el juego que solo pueden verificarse en la máquina del Director.
+
+**Contexto:** D.7 retira automáticamente mercados que han quedado resueltos o matemáticamente imposibles (ej. "primer goleador" después del primer gol, o "over 2.5 goles" cuando ya hay 3 goles y minutos insuficientes para más). E.9 refleja esto en la UI: los mercados retirados desaparecen o se muestran como "no disponible" con una razón breve, y los mercados vigentes siguen actualizando cuota/ganancia en cada tick.
+
+### 7.1 Retirada de mercado tras evento decisivo
+
+**Objetivo:** Verificar que los mercados que logran un resultado definitivo o imposible se retiran automáticamente de la oferta y no permiten nuevas apuestas.
+
+**Setup:**
+- Llega a un partido en cualquier fase (antes de que haya acción del tipo que resuelve un mercado, ej. ningún gol aún).
+
+**Pasos — Caso A: First Scorer (resuelto por primer gol):**
+
+1. Apunta que "primer goleador" está disponible en la oferta (debe verse entre los mercados).
+2. Avanza ticks sin que se marque gol (mercado debe seguir disponible).
+3. Llega a un tick donde se marca el **primer gol del partido** (cualquier equipo, cualquier jugador).
+4. **Inmediatamente después** (antes de avanzar otro tick), mira la lista de mercados disponibles.
+   - **Si es correcto:** "primer goleador" desaparece o aparece atenuado con etiqueta "no disponible — ya hubo gol" (o similar). Nunca puedes seleccionar una opción en ese mercado.
+   - **Señal de fallo:** "primer goleador" sigue apostable después del primer gol, o sigue visible como si nada pasara.
+
+**Pasos — Caso B: Over/Under resuelto por marcador inevitable:**
+
+1. Busca un mercado "over/under" de goles ofertado (ej. "over 1.5 goles", "under 3.5 goles").
+2. Anota el minuto actual y el umbral del mercado (ej. estamos en min 30, mercado es "over 2.5").
+3. Avanza ticks. El marcador sube a **3 goles totales**.
+4. A continuación, observa el mercado "over 2.5":
+   - **Si es correcto:** Desaparece o muestra "no disponible — ya se cumplió el over" (porque 3 > 2.5, es irreversible).
+   - **Señal de fallo:** "over 2.5" sigue apostable aunque el resultado ya está decidido.
+5. **Caso complementario:** Si el partido tiene pocos minutos restantes y 0 goles, busca "over 3.5":
+   - A min 85 con 0 goles totales, "over 3.5" es **imposible** (solo quedan 5 minutos, es poco probable marcar 4 goles en ese tiempo).
+   - **Si D.7 aplica correctamente:** El mercado debería retirarse o marcarse como imposible con una razón similar.
+   - **Nota:** Esta regla es heurística (depende del criterio que Programmer elegir para "imposible"); lo importante es que, si se retira, la razón sea clara.
+
+### 7.2 Mercados 1x2 y BTTS nunca se retiran
+
+**Objetivo:** Confirmar que los mercados 1x2 (resultado del partido) y BTTS (ambos equipos marcan) **nunca desaparecen**, sin importar el marcador ni el minuto.
+
+**Setup:**
+- Juega un partido cualquiera desde el minuto 0 al 90.
+
+**Pasos:**
+
+1. **1x2:**
+   - Verifica que al inicio hay 3 opciones: "home", "away", "draw".
+   - Avanza a min 30, marcador 2–0 para home. Mira la oferta.
+     - **Si es correcto:** 1x2 sigue visible con sus 3 opciones (aunque probabilísticamente "home" sea casi seguro, sigue siendo ofertable).
+   - Avanza a min 85, sigue 2–0. 1x2 debe seguir ofertándose.
+   - **Señal de fallo:** 1x2 desaparece en algún punto; o una opción (ej. "draw") desaparece mientras las otras quedan.
+
+2. **BTTS:**
+   - Busca "BTTS" (ambos equipos marcan) si está en la lista de mercados.
+   - Marcador 1–0 en min 20. BTTS debe seguir disponible (el segundo equipo aún puede marcar).
+   - Marcador sigue 1–0 en min 85, minutos casi finales. BTTS debe seguir siendo ofertable (aunque poco probable, matemáticamente posible).
+   - **Señal de fallo:** BTTS desaparece antes de que termine el partido.
+
+### 7.3 Ninguna oferta nunca queda vacía
+
+**Objetivo:** Garantizar que en cualquier momento de un partido LIVE, siempre hay al menos un mercado disponible para apostar (relación directa con el Bug 1 y la garantía de no-bloqueo).
+
+**Setup:**
+- Juega partidos variados en diferentes jornadas y marcadores.
+
+**Pasos:**
+
+1. En cualquier tick donde el partido siga LIVE:
+   - Mira la pantalla de apuestas y cuenta **cuántos mercados están disponibles** (no atenuados, no con overlay de "no disponible").
+   - **Si es correcto:** Siempre hay al menos 1 mercado apostable. Como mínimo 1x2 ó BTTS (o ambos) deben estar disponibles.
+   - **Señal de fallo:** En algún tick ves que todos los mercados están atenuados/no disponibles, el tribunal aparece vacío, y no puedes apostar nada (bloqueo total).
+
+2. **Caso especial — muchos mercados retirados a la vez:**
+   - Si en un tick múltiples mercados se retiran (ej. first_scorer + varios over/under), verifica que al menos uno sigue ofertable.
+   - Si resulta que `1x2` y `BTTS` se ven afectados por restricciones de Momento Crazy en ese mismo tick, verifica que **al menos uno de los dos** sigue disponible (nunca ambos restringidos).
+
+### 7.4 Distinción visual entre "no disponible" (D.7) y "restringido por Momento Crazy" (B.3)
+
+**Objetivo:** Verificar que los overlays/estados visuales de retirada por minuto y restricción por Momento Crazy **no se solapan** — el usuario ve claramente cuál es la razón de que un mercado no sea apostable.
+
+**Contexto:** Este es el bug exacto que se corrigió: un mercado retirado (ej. "primer goleador" tras un gol) coincidía visualmente con un Momento Crazy activo en el mismo tick, resultando en un overlay doble y confuso. El fix asegura que **una vez retirado, nunca se muestra el overlay rojo de Crazy**.
+
+**Setup:**
+- Juega hasta que coincida un **Momento Crazy** (overlay rojo/vino, sello "CRAZY", restricción de mercados) con un tick en el que algún mercado se retira.
+- Esto puede ocurrir por azar en varias runs; si quieres forzarlo, anota qué jornada/minuto típicamente activa Crazy y planifica para que coincida con un evento resolutivo (ej. un gol).
+
+**Pasos:**
+
+1. **Overlay único:**
+   - Cuando el Crazy está activo, mira un mercado que **ya fue retirado en un tick anterior** (ej. "primer goleador" porque ya hubo gol hace 3 ticks).
+   - **Si es correcto:** El mercado muestra solo la etiqueta de "no disponible — ya hubo gol" (estado de D.7). No hay overlay rojo de Crazy superpuesto.
+   - **Señal de fallo:** Ves un overlay rojo + la etiqueta de razón juntos, o solo el overlay rojo sin la razón.
+
+2. **Contraste — mercado sí restringido por Crazy:**
+   - En el mismo Crazy, mira un mercado que **no está retirado por minuto**, pero **sí está restringido por Crazy** (ej. "over/under" que Crazy permite escoger, pero reduce la cantidad a 1-2 opciones).
+   - **Si es correcto:** Ves el overlay rojo/vino (indicador de Crazy) sin la etiqueta de "no disponible". Las opciones restringidas se ven claramente.
+   - **Señal de fallo:** Ves la misma presentación que en el caso anterior (confusión), o no hay diferencia visual entre retirado y restringido.
+
+3. **Ambos casos en la misma pantalla:**
+   - Si en un tick ves 4-5 mercados al mismo tiempo, algunos retirados y algunos restringidos:
+     - Los retirados deben tener un estilo o etiqueta consistente ("no disponible + razón").
+     - Los restringidos (si no son retirados) deben tener el overlay rojo de Crazy.
+     - Nunca un mercado retirado debe tener el overlay rojo superpuesto.
+
+### 7.5 Apuesta ya colocada no se ve afectada
+
+**Objetivo:** Confirmar que una apuesta hecha **antes de que el mercado se retire** sigue resolviéndose con normalidad al final del partido, aunque el mercado ya no aparezca en la oferta disponible.
+
+**Setup:**
+- Coloca una apuesta en un mercado "destinado a retirarse" (ej. "primer goleador: Jugador X") **antes de que el evento resolutivo ocurra**.
+
+**Pasos:**
+
+1. **Apuesta en first_scorer:**
+   - Marca "primer goleador: Jugador X" (cualquier jugador), apuesta 50$.
+   - Confirma. El boleto debe aparecer en "Apuestas pendientes" con estado inicial (ej. "aún indeciso" o "vas perdiendo").
+   - Avanza ticks. En algún momento se marca el **primer gol del partido** (por Jugador Y, no X).
+   - Mira "Apuestas pendientes": el boleto de Jugador X debe seguir ahí, con estado actualizado a "vas perdiendo esta" (porque el mercado se decidió sin la selección).
+   - Avanza hasta min 90 (final del partido).
+   - El boleto debe mostrar "PERDIÓ" y restar 50$ del saldo (o si Jugador X marcó el gol después que otro, la resolución correcta según el orden).
+   - **Si es correcto:** La apuesta se resuelve normalmente aunque "primer goleador" ya no esté en la oferta.
+   - **Señal de fallo:** El boleto desaparece cuando el mercado se retira, o no se resuelve al final del partido.
+
+2. **Apuesta en over/under:**
+   - Apuesta 100$ a "over 2.5 goles". Confirmá.
+   - Avanza ticks. Marcador llega a 3 goles totales (over se cumple, mercado se retira).
+   - El boleto debe cambiar a estado "vas ganando esta" (porque ya se cumplió el over, es irreversible).
+   - Avanza hasta el final.
+   - El boleto se resuelve como "GANÓ" y suma 100$ × cuota al saldo.
+   - **Señal de fallo:** El boleto se comporta de forma errática (desaparece, no se resuelve, muestra estado incorrecto).
+
+---
+
+**Resumen de señales de fallo críticas para D.7/E.9:**
+- Mercado resuelto (first_scorer tras gol, over tras cumplimiento) sigue apostable.
+- 1x2 o BTTS desaparece antes de final del partido.
+- Algún tick quedan cero mercados apostables (bloqueo total).
+- Overlay rojo de Crazy aparece sobre un mercado ya retirado.
+- Apuesta colocada antes de retirada no se resuelve.
+- Razón de "no disponible" no aparece o es incomprensible.
+
+
+## 8. Fuera de alcance de esta primera ronda de pruebas
 
 - Fases narrativas 3 y 4 del deterioro (requieren 13+ y 21+ runs jugadas — poco práctico en una sesión corta).
 - Contenido narrativo real: todo el texto de comentarios, Expediente e intro está en placeholders "pendiente de redacción" — no es un bug, falta escribirlo.
