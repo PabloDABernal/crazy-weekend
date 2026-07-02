@@ -13,6 +13,8 @@ class_name TutorialOverlay extends Control
 @onready var _skip_hint_label: Label = $TutorialPanel/VBox/SkipHintLabel
 
 
+
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 

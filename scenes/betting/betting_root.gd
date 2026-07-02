@@ -11,14 +11,18 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 
 @onready var _match_simulation_service: MatchSimulationService = $MatchSimulationService
 @onready var _pending_bets_tracker: PendingBetsTracker = $PendingBetsTracker
-@onready var _top_bar: TopBar = $TopBar
-@onready var _match_selector: MatchSelector = $MatchSelector
-@onready var _match_panel_container: Control = $MatchPanelContainer
-@onready var _global_status_label: Label = $GlobalBottomBar/GlobalStatusLabel
-@onready var _continue_button: Button = $GlobalBottomBar/ContinueButton
+@onready var _top_bar: TopBar = $MainVBox/TopBar
+@onready var _match_selector: MatchSelector = $MainVBox/ContentHBox/LeftPanel/MatchSelector
+@onready var _match_panel_container: Control = $MainVBox/ContentHBox/LeftPanel/MatchPanelContainer
+@onready var _scoreboard_mini: VBoxContainer = $MainVBox/ContentHBox/RightPanel/ScoreboardMini
+@onready var _pending_bets_panel: VBoxContainer = $MainVBox/ContentHBox/RightPanel/PendingBetsPanel
+@onready var _global_status_label: Label = $MainVBox/BottomBar/GlobalStatusLabel
+@onready var _continue_button: Button = $MainVBox/BottomBar/ContinueButton
 @onready var _crazy_moment_overlay: CrazyMomentOverlay = $CrazyMomentOverlay
 @onready var _tutorial_overlay: TutorialOverlay = $TutorialOverlay
 @onready var _run_end_screen: RunEndScreen = $RunEndScreen
+
+var _score_labels: Dictionary = {}  # match_id (StringName) -> Label
 
 var _focused_match_id: StringName = &""
 var _match_panels: Dictionary = {}          # match_id (StringName) -> MatchPanel instanciado
@@ -163,17 +167,24 @@ func _create_match_panel(match_fixture: MatchFixture) -> void:
 
 	var home_team: TeamDef = LeagueState.get_team(match_fixture.home_team_id)
 	var away_team: TeamDef = LeagueState.get_team(match_fixture.away_team_id)
-	var label: String = "%s vs %s" % [
-		home_team.display_name if home_team != null else String(match_fixture.home_team_id),
-		away_team.display_name if away_team != null else String(match_fixture.away_team_id),
-	]
+	var h: String = home_team.display_name if home_team != null else String(match_fixture.home_team_id)
+	var a: String = away_team.display_name if away_team != null else String(match_fixture.away_team_id)
+	var label: String = "%s vs %s" % [h, a]
 	_match_selector.ensure_tab(match_fixture.match_id, label)
+
+	var score_label := Label.new()
+	score_label.text = "%s  0 - 0  %s" % [h, a]
+	_scoreboard_mini.add_child(score_label)
+	_score_labels[match_fixture.match_id] = score_label
 
 
 func _clear_match_panels() -> void:
 	for panel in _match_panels.values():
 		panel.queue_free()
 	_match_panels.clear()
+	for lbl in _score_labels.values():
+		lbl.queue_free()
+	_score_labels.clear()
 	_match_selector.clear_tabs()
 	_focused_match_id = &""
 
@@ -207,7 +218,8 @@ func _on_bet_tick_resolved(match_id: StringName, _tick_index: int) -> void:
 		return
 
 	_pending_bets_tracker.resolve_bets_for_match(match_id, match_state, _current_matchday_id())
-	_top_bar.refresh_pending_bets(_pending_bets_tracker.get_pending_bets())
+	_refresh_pending_bets_panel()
+	_refresh_score_label(match_id, match_state)
 
 
 ## Enruta el context al MatchPanel correspondiente a context.available_markets[0].match_id (todas las
@@ -359,7 +371,7 @@ func _on_match_panel_bet_confirmed(match_id: StringName, market_offer: MarketOff
 	var was_first_bet_ever: bool = not MetaProgress.has_completed_first_bet_tutorial()
 
 	_pending_bets_tracker.register_bet(match_id, market_offer, stake, tick_index)
-	_top_bar.refresh_pending_bets(_pending_bets_tracker.get_pending_bets())
+	_refresh_pending_bets_panel()
 
 	# Regla de sincronización multi-partido (sección 3.4): si hay Crazy Bet activo y esta apuesta usó
 	## el mercado/monto forzoso vigente, se marca resuelto para TODO el tick global -- los demás
@@ -381,6 +393,57 @@ func _on_match_panel_bet_confirmed(match_id: StringName, market_offer: MarketOff
 func _on_match_panel_tick_bet_requirement_satisfied(match_id: StringName) -> void:
 	_match_selector.mark_bet_requirement_satisfied(match_id)
 	_refresh_global_continue_state()
+
+
+func _refresh_score_label(match_id: StringName, state: MatchTickState) -> void:
+	var lbl: Label = _score_labels.get(match_id, null)
+	if lbl == null:
+		return
+	var home: TeamDef = LeagueState.get_team(state.home_team_id)
+	var away: TeamDef = LeagueState.get_team(state.away_team_id)
+	var h: String = home.display_name if home != null else String(state.home_team_id)
+	var a: String = away.display_name if away != null else String(state.away_team_id)
+	lbl.text = "%s  %d-%d  %s  (min %d)" % [h, state.home_goals, state.away_goals, a, state.current_minute]
+
+
+func _refresh_pending_bets_panel() -> void:
+	for child in _pending_bets_panel.get_children():
+		child.queue_free()
+
+	var pending: Array[PendingBet] = _pending_bets_tracker.get_pending_bets()
+	if pending.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "Sin apuestas pendientes"
+		_pending_bets_panel.add_child(empty_lbl)
+		return
+
+	var total: int = 0
+	for bet in pending:
+		total += bet.stake
+	var summary := Label.new()
+	summary.text = "%d apuesta%s · $%d en juego" % [pending.size(), "s" if pending.size() != 1 else "", total]
+	_pending_bets_panel.add_child(summary)
+
+	var start: int = max(0, pending.size() - 4)
+	for i in range(start, pending.size()):
+		var bet: PendingBet = pending[i]
+		var market_name: String = _format_market_name(bet.market_offer.market_id)
+		var lbl := Label.new()
+		lbl.text = "  $%d · %s" % [bet.stake, market_name]
+		_pending_bets_panel.add_child(lbl)
+
+
+func _format_market_name(market_id: StringName) -> String:
+	match String(market_id):
+		"1x2": return "resultado"
+		"btts": return "ambos marcan"
+		"first_scorer": return "1er goleador"
+		"goals_ou_1_5": return "goles >1.5"
+		"goals_ou_2_5": return "goles >2.5"
+		"goals_ou_3_5": return "goles >3.5"
+		"cards_ou": return "tarjetas"
+		"fouls_ou": return "faltas"
+	return String(market_id)
 
 
 func _current_matchday_id() -> StringName:

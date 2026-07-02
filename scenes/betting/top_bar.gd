@@ -21,37 +21,8 @@ func set_hour_text(text: String) -> void:
 	_hour_display.text = text
 
 
-func refresh_pending_bets(pending: Array[PendingBet]) -> void:
-	for child in _pending_bets_list.get_children():
-		child.queue_free()
-
-	if pending.is_empty():
-		return
-
-	var total_staked: int = 0
-	for bet in pending:
-		total_staked += bet.stake
-
-	var summary := Label.new()
-	summary.text = "📋 %d apuesta%s pendiente%s | $%d en juego" % [
-		pending.size(),
-		"s" if pending.size() != 1 else "",
-		"s" if pending.size() != 1 else "",
-		total_staked,
-	]
-	_pending_bets_list.add_child(summary)
-
-	# Mostrar solo las últimas 3 apuestas
-	var start_index: int = max(0, pending.size() - 3)
-	for i in range(start_index, pending.size()):
-		var bet: PendingBet = pending[i]
-		var label := Label.new()
-		label.text = "  $%d %s · %s" % [
-			bet.stake,
-			_format_market_name(bet.market_offer.market_id),
-			_resolve_match_label(bet.match_id).split(" vs ")[0],  # solo equipo local
-		]
-		_pending_bets_list.add_child(label)
+func refresh_pending_bets(_pending: Array[PendingBet]) -> void:
+	pass  # Pending bets ahora los gestiona BettingRoot directamente en RightPanel
 
 
 func _resolve_match_label(match_id: StringName) -> String:
