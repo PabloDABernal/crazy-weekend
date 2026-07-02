@@ -10,7 +10,7 @@ class_name EmptyDayOverlay extends Control
 ## en esta historia; la variante fase 3-4 es mejora opcional no bloqueante, no implementada aquí): la
 ## frase "Hoy no hay partidos. La jornada se concentra en [día]." se reparte entre los dos labels que
 ## fija la spec técnica (sección 2): TitleLabel = "Hoy no hay partidos.", DetailLabel = "La jornada se
-## concentra en [día]." con [día] = nombre del día siguiente (next_day).
+## concentra en [día]." con [día] = nombre del próximo día CON partidos (next_day).
 
 ## Emitida cuando termina el temporizador y el overlay se oculta. BettingRoot la usa para reanudar el
 ## avance de día (llamar a _on_matchday_finished(-1)).
@@ -36,7 +36,8 @@ func _ready() -> void:
 ## Muestra la pantalla breve para un día sin partidos y arranca el temporizador de auto-cierre.
 ## empty_day = día que quedó sin partidos (no se usa hoy en el texto, se recibe para que la interfaz
 ## quede completa según la spec técnica sección 3, por si un futuro copy lo necesita).
-## next_day  = día inmediatamente siguiente al que avanzará la run (para DetailLabel).
+## next_day  = próximo día CON partidos al que avanzará la run (no necesariamente el inmediato
+## siguiente en calendario -- ver betting_root.gd::_next_day_with_matches; para DetailLabel).
 func show_empty_day(_empty_day: BettingDay.Day, next_day: BettingDay.Day) -> void:
 	_title_label.text = "Hoy no hay partidos."
 	_detail_label.text = "La jornada se concentra en %s." % _format_day_label(next_day)
