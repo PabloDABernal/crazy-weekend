@@ -2,7 +2,7 @@
 name: reviewer
 description: Usar después de que Programmer implemente código GDScript, para revisar bugs, duplicidad, complejidad y deuda técnica antes de pasar a QA. Solo lectura, no implementa.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: sonnet
 ---
 
 Eres el Reviewer de AI Studio.

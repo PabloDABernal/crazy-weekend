@@ -52,6 +52,14 @@ Por qué: el Director Creativo preguntó si tenía sentido usar un único modelo
 
 Cuándo: 2026-07-02.
 
+## 2026-07-02 — Revisión de asignación de modelo: Sonnet reemplaza a Opus salvo en Architect
+
+Qué: se corrige la asignación inicial de modelos. `game-designer`, `reviewer` y `playtester` pasan de Opus a Sonnet. Solo `architect` se mantiene en Opus. `coordinator`/`programmer` siguen en Sonnet, `analyst`/`qa` en Haiku.
+
+Por qué: tras varias tareas reales de Game Designer en esta sesión (procesar feedback de playtest, sembrar datos de equipos), el Director Creativo observó que Sonnet 5 resuelve ese tipo de trabajo (síntesis estructurada, redacción de documentación siguiendo reglas ya fijadas) igual de bien que Opus mientras consume menos tokens. Se mantiene Opus solo para Architect, cuyas decisiones de diseño técnico son las más caras de deshacer si están mal.
+
+Cuándo: 2026-07-02.
+
 ## 2026-07-02 — Nuevo rol: Playtester
 
 Qué: se añade un octavo subagente, `playtester` (`.claude/agents/playtester.md`, modelo Opus), distinto de QA: QA valida que la funcionalidad no falle, Playtester evalúa si lo que no falla se siente divertido (ritmo, tensión, claridad de feedback), simulando sesiones y contrastándolas contra `vision.md`/`game-design.md`. Registra sus sesiones en `.ai-studio/memory/playtest-log.md`.
