@@ -412,21 +412,26 @@ La liga se regenera al inicio de cada nueva temporada (tras la jornada 38), pero
 
 La fuente semilla del generador de liga (los 20 equipos base con su jerarquía) vive como CSV editable en Excel en `.ai-studio/memory/team-roster-seed.csv`. **Ese CSV es la fuente de verdad editable de los datos**; aquí solo se documenta el esquema (qué columnas existen y qué rango es válido) para Architect/Programmer. No se duplica la tabla completa en este documento — si cambian valores, se editan en el CSV.
 
-El generador semi-aleatorio (ver "Generación") toma estos 20 equipos como plantilla base: aplica ruido controlado sobre los atributos y reordena, pero respetando la jerarquía relativa que marca el `tier` y el `is_star_team` (para que "peso hacia equipos estrella" sea reproducible, no puro azar). El algoritmo concreto es trabajo de Architect.
+El generador semi-aleatorio (ver "Generación") toma estos 20 equipos como plantilla base: aplica ruido controlado sobre los atributos y reordena. El único suelo duro que respeta es el de los equipos `Estrella` (`is_star_team=TRUE`): esos 3 no bajan nunca y arrancan generalmente arriba (para que "peso hacia equipos estrella" sea reproducible, no puro azar). El resto de etiquetas de `tier` son solo punto de partida y el ruido puede moverlas en cualquier dirección (ver aclaración abajo). El algoritmo concreto es trabajo de Architect.
+
+**Aclaración clave — `tier`/`is_star_team` son punto de partida, no jerarquía rígida (salvo Estrella):**
+En la tabla semilla, `tier` e `is_star_team` describen dónde arranca cada equipo, no dónde va a terminar la temporada. Solo los 3 equipos `Estrella` (los que tienen `is_star_team=TRUE`) tienen un **suelo duro garantizado por el generador**: nunca dejan de estar arriba, nunca pelean el descenso. `Europa` y `Media` son **puntos de partida probabilísticos** que la generación semi-aleatoria de cada temporada (ver "Generación", el ruido ya descrito) puede mover hacia arriba o hacia abajo: un equipo `Europa` puede acabar peleando el descenso, y un equipo `Media` puede acabar peleando plazas europeas o incluso el título. Esa volatilidad es intencionada y no rompe la jerarquía de los 3 `Estrella`, que se mantiene como ancla estable por encima del ruido. Ya no existe un `tier` `Descenso`: la pelea por el descenso no es una etiqueta fija de equipos concretos, sino algo que le puede pasar cada temporada a cualquier equipo que no sea `Estrella`.
+
+El CSV en `.ai-studio/memory/team-roster-seed.csv` es la fuente de verdad editable de los valores; este documento solo fija el esquema y las reglas.
 
 | Columna | Significado | Rango válido |
 |---|---|---|
 | `team_id` | Identificador interno estable (slug snake_case). Nunca visible al jugador. | string único, snake_case |
 | `display_name` | Nombre ficticio mostrado en UI (distorsión de un equipo real de LaLiga). | string |
 | `inspiration_ref` | **Nota de producción, NO dato de juego**: equipo real de LaLiga que inspira el nombre/perfil. Existe solo para que el Director sea consistente al rellenar la tabla. No se importa al motor. | string (nombre real) |
-| `tier` | Categoría de prestigio percibido. Es la ancla de la jerarquía que exige "Jerarquía de equipos debe percibirse". | `Estrella` \| `Europa` \| `Media` \| `Descenso` |
+| `tier` | Etiqueta de punto de partida en la tabla semilla (ver aclaración abajo). Solo `Estrella` es una garantía dura; `Europa` y `Media` son puntos de partida probabilísticos. | `Estrella` \| `Europa` \| `Media` |
 | `offense` | Capacidad ofensiva. Alimenta goles a favor esperados. | 0.0–1.0 |
 | `defense` | Solidez defensiva. Alimenta goles en contra esperados. | 0.0–1.0 |
 | `current_form` | Forma actual (valor semilla inicial de campaña). El motor la recalcula jornada a jornada; el CSV solo fija el arranque. | 0.0–1.0 |
 | `home_advantage` | Factor local, constante por equipo (no cambia jornada a jornada). | 0.0–1.0 |
-| `is_star_team` | Flag para el peso del generador hacia jerarquía reconocible. TRUE = el generador lo protege como cabeza de liga. | `TRUE` \| `FALSE` |
+| `is_star_team` | Flag de suelo duro. TRUE = el generador lo protege como cabeza de liga permanente (nunca baja, generalmente arriba). Solo los 3 `Estrella` lo tienen. | `TRUE` \| `FALSE` |
 
-Distribución de jerarquía en la semilla actual (para que la jerarquía se perciba, no sea plana): 3 equipos claramente arriba (`Estrella`), 2 fuertes (`Europa`), un grupo medio amplio de 11 (`Media`) y 4 candidatos claros a descenso (`Descenso`). La brecha de atributos entre `Estrella` y `Descenso` es deliberadamente grande (ej. offense 0.95 vs 0.38) para que un favorito claro en casa produzca la banda alta y estrecha que pide la sección "Jerarquía de equipos debe percibirse".
+Distribución de la semilla actual (punto de partida, no resultado garantizado): 3 equipos `Estrella` con suelo duro (siempre arriba), un bloque amplio de 7 `Europa` y 10 `Media`. Los equipos `Europa` y `Media` arrancan en esa banda pero cada temporada el ruido puede reordenarlos por completo hacia arriba o hacia abajo (ver aclaración arriba). La brecha de atributos entre los `Estrella` y los equipos más débiles de la semilla es deliberadamente grande (ej. offense 0.95 vs 0.38) para que un favorito claro en casa produzca la banda alta y estrecha que pide la sección "Jerarquía de equipos debe percibirse".
 
 ### Cómo informan las probabilidades
 - El motor calcula probabilidades base a partir de los atributos + historial de jornadas anteriores.
