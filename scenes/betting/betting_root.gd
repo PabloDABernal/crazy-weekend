@@ -144,7 +144,7 @@ func _start_day_and_countdown(day: BettingDay.Day) -> void:
 		if day == BettingDay.Day.SUNDAY:
 			_on_matchday_finished(-1)
 		else:
-			_empty_day_overlay.show_empty_day(day, _next_day_after(day))
+			_empty_day_overlay.show_empty_day(day, _next_day_with_matches(day))
 	else:
 		_start_landing_countdown()
 
@@ -155,8 +155,8 @@ func _on_empty_day_skip_finished() -> void:
 	_on_matchday_finished(-1)
 
 
-## Mismo mapeo que ya usa _on_matchday_finished (FRIDAY->SATURDAY, SATURDAY->SUNDAY); solo se usa para
-## poblar EmptyDayOverlay.DetailLabel (E.10, sección 6 de la spec).
+## Mismo mapeo que ya usa _on_matchday_finished (FRIDAY->SATURDAY, SATURDAY->SUNDAY); paso interno de
+## _next_day_with_matches (E.10, sección 9 de la spec).
 func _next_day_after(day: BettingDay.Day) -> BettingDay.Day:
 	match day:
 		BettingDay.Day.FRIDAY:
@@ -165,6 +165,22 @@ func _next_day_after(day: BettingDay.Day) -> BettingDay.Day:
 			return BettingDay.Day.SUNDAY
 		_:
 			return day
+
+
+## Devuelve el primer día POSTERIOR a `from_day` que tiene al menos un partido, consultando el
+## reparto por día ya determinista (_matches_for_day) sin arrancar ni mutar ningún día. Se usa sólo
+## para poblar EmptyDayOverlay.DetailLabel con el próximo día con partidos (E.10, sección 9 de la
+## spec, corrección post-commit 0a8c733). En una jornada CONCENTRATED con viernes y sábado vacíos,
+## devuelve SUNDAY para ambos. Domingo (último día de la run) es el piso garantizado: en CONCENTRATED
+## siempre tiene todos los partidos, así que el bucle siempre termina.
+func _next_day_with_matches(from_day: BettingDay.Day) -> BettingDay.Day:
+	var matchday_fixture: MatchdayFixture = LeagueState.get_current_matchday_fixture()
+	var candidate: BettingDay.Day = from_day
+	while candidate != BettingDay.Day.SUNDAY:
+		candidate = _next_day_after(candidate)
+		if matchday_fixture != null and not _matches_for_day(matchday_fixture, candidate).is_empty():
+			return candidate
+	return candidate
 
 
 ## Arranca la simulación del día indicado con el subconjunto de partidos de la jornada de liga

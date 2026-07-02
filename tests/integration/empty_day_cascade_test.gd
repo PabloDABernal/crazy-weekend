@@ -12,6 +12,10 @@ extends SceneTree
 ##      muestra el overlay dos veces, en serie, antes de llegar al domingo con partidos -- sin abrir
 ##      ningún gate de apuesta ni tick obligatorio en el proceso (invariante anti-Bug-1: nunca se abre
 ##      un tick que no puede resolverse porque no hay ningún MatchPanel escuchando).
+##   5. Corrección post-commit 0a8c733 (spec sección 9): en ese caso doble-vacío, DetailLabel debe
+##      anunciar el próximo día CON partidos (domingo) en AMBAS pantallas -- la de viernes NO debe decir
+##      "sábado" (día inmediatamente siguiente pero también vacío), porque contradice lo que el jugador
+##      ve justo después.
 ##
 ## Ejecutar headless (requiere Godot instalado en el entorno que corra el test):
 ##   godot --headless --path . --script res://tests/integration/empty_day_cascade_test.gd
@@ -76,8 +80,12 @@ func _test_cascade_two_empty_days_before_matches_no_gate_opened() -> void:
 		_fail("viernes de una jornada CONCENTRATED debería quedar sin partidos (_match_panels vacío)")
 	if not betting_root._empty_day_overlay.visible:
 		_fail("viernes vacío: EmptyDayOverlay debería mostrarse (1ª pantalla de la cascada)")
-	if not betting_root._empty_day_overlay._detail_label.text.contains("sábado"):
-		_fail("viernes vacío: DetailLabel debería anunciar 'sábado' (día siguiente), texto=%s" % betting_root._empty_day_overlay._detail_label.text)
+	# Corrección post-0a8c733 (spec §9): en esta jornada sábado TAMBIÉN está vacío, así que el próximo
+	# día CON partidos es domingo, no sábado -- DetailLabel debe decir "domingo", nunca "sábado".
+	if not betting_root._empty_day_overlay._detail_label.text.contains("domingo"):
+		_fail("viernes vacío: DetailLabel debería anunciar 'domingo' (próximo día CON partidos, no el inmediatamente siguiente), texto=%s" % betting_root._empty_day_overlay._detail_label.text)
+	if betting_root._empty_day_overlay._detail_label.text.contains("sábado"):
+		_fail("viernes vacío: DetailLabel NO debería mencionar 'sábado' (también vacío en esta jornada CONCENTRATED), texto=%s" % betting_root._empty_day_overlay._detail_label.text)
 	if not betting_root._matches_with_tick_open_this_cycle.is_empty():
 		_fail("viernes vacío: no debería haber ningún tick obligatorio abierto (invariante anti-Bug-1)")
 	if _bet_tick_opened_count != 0:
