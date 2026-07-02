@@ -408,6 +408,26 @@ La liga se regenera al inicio de cada nueva temporada (tras la jornada 38), pero
 - Estos datos son la fuente real de las probabilidades — el jugador no los ve directamente.
 - Con investigación inter-run el jugador desbloquea acceso parcial a estas estadísticas (no los números internos, sino indicadores: "el delantero centro lleva 3 goles en los últimos 4 partidos").
 
+### Semilla de equipos — esquema de la tabla de datos
+
+La fuente semilla del generador de liga (los 20 equipos base con su jerarquía) vive como CSV editable en Excel en `.ai-studio/memory/team-roster-seed.csv`. **Ese CSV es la fuente de verdad editable de los datos**; aquí solo se documenta el esquema (qué columnas existen y qué rango es válido) para Architect/Programmer. No se duplica la tabla completa en este documento — si cambian valores, se editan en el CSV.
+
+El generador semi-aleatorio (ver "Generación") toma estos 20 equipos como plantilla base: aplica ruido controlado sobre los atributos y reordena, pero respetando la jerarquía relativa que marca el `tier` y el `is_star_team` (para que "peso hacia equipos estrella" sea reproducible, no puro azar). El algoritmo concreto es trabajo de Architect.
+
+| Columna | Significado | Rango válido |
+|---|---|---|
+| `team_id` | Identificador interno estable (slug snake_case). Nunca visible al jugador. | string único, snake_case |
+| `display_name` | Nombre ficticio mostrado en UI (distorsión de un equipo real de LaLiga). | string |
+| `inspiration_ref` | **Nota de producción, NO dato de juego**: equipo real de LaLiga que inspira el nombre/perfil. Existe solo para que el Director sea consistente al rellenar la tabla. No se importa al motor. | string (nombre real) |
+| `tier` | Categoría de prestigio percibido. Es la ancla de la jerarquía que exige "Jerarquía de equipos debe percibirse". | `Estrella` \| `Europa` \| `Media` \| `Descenso` |
+| `offense` | Capacidad ofensiva. Alimenta goles a favor esperados. | 0.0–1.0 |
+| `defense` | Solidez defensiva. Alimenta goles en contra esperados. | 0.0–1.0 |
+| `current_form` | Forma actual (valor semilla inicial de campaña). El motor la recalcula jornada a jornada; el CSV solo fija el arranque. | 0.0–1.0 |
+| `home_advantage` | Factor local, constante por equipo (no cambia jornada a jornada). | 0.0–1.0 |
+| `is_star_team` | Flag para el peso del generador hacia jerarquía reconocible. TRUE = el generador lo protege como cabeza de liga. | `TRUE` \| `FALSE` |
+
+Distribución de jerarquía en la semilla actual (para que la jerarquía se perciba, no sea plana): 3 equipos claramente arriba (`Estrella`), 2 fuertes (`Europa`), un grupo medio amplio de 11 (`Media`) y 4 candidatos claros a descenso (`Descenso`). La brecha de atributos entre `Estrella` y `Descenso` es deliberadamente grande (ej. offense 0.95 vs 0.38) para que un favorito claro en casa produzca la banda alta y estrecha que pide la sección "Jerarquía de equipos debe percibirse".
+
 ### Cómo informan las probabilidades
 - El motor calcula probabilidades base a partir de los atributos + historial de jornadas anteriores.
 - Sin investigación: el jugador ve rangos anchos ("entre 40% y 65%").
