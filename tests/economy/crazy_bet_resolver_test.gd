@@ -46,6 +46,7 @@ func _init() -> void:
 	_test_respects_min_max_allowed_markets(failures)
 	_test_excludes_highest_confidence_market(failures)
 	_test_no_duplicates_across_many_seeds(failures)
+	_test_single_distinct_market_is_never_excluded(failures)
 
 	if failures.is_empty():
 		print("[PASS] crazy_bet_resolver_test: todos los checks OK")
@@ -132,3 +133,35 @@ func _test_no_duplicates_across_many_seeds(failures: Array[String]) -> void:
 				failures.append("seed=%d: allowed_market_ids con duplicado %s (allowed=%s)" % [seed_value, market_id, allowed])
 				break
 			seen[market_id] = true
+
+
+## Caso límite hallado en review del fix de Bug 1: si solo hay 1 market_id distinto disponible en el
+## tick (ej. un futuro catálogo data-driven con un único .tres), `tied_for_highest` es ese único
+## mercado y excluirlo dejaría `allowed` vacío, violando la garantía de "al menos 1 mercado permitido".
+## `allowed` debe seguir conteniendo ese único mercado, sin excluir nada.
+func _test_single_distinct_market_is_never_excluded(failures: Array[String]) -> void:
+	for seed_value in range(0, 10):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+
+		var offers: Array[MarketOffer] = []
+		for option_key in OPTIONS_BY_MARKET[&"1x2"]:
+			var offer := MarketOffer.new()
+			offer.market_id = &"1x2"
+			offer.match_id = &"match_test"
+			offer.option_key = option_key
+			offer.confidence = CONFIDENCE_BY_MARKET[&"1x2"]
+			offer.displayed_probability_min = 0.1
+			offer.displayed_probability_max = 0.2
+			offers.append(offer)
+
+		var result: Dictionary = CrazyBetResolver.select_restricted_markets(offers, rng)
+		var allowed: Array = result["allowed"]
+		var excluded: StringName = result["excluded"]
+
+		if allowed.is_empty():
+			failures.append("seed=%d: allowed_market_ids quedó vacío con 1 solo mercado distinto disponible" % seed_value)
+		if not allowed.has(&"1x2"):
+			failures.append("seed=%d: el único mercado disponible (1x2) no quedó en allowed (allowed=%s)" % [seed_value, allowed])
+		if excluded != &"":
+			failures.append("seed=%d: excluded_market_id esperado vacío, obtenido '%s'" % [seed_value, excluded])

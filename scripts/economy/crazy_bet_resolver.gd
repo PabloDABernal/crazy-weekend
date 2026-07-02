@@ -72,7 +72,11 @@ static func select_restricted_markets(available: Array[MarketOffer], rng: Random
 	var excluded_ids: Array[StringName] = []
 	var remaining_after_exclusion: int = market_order.size() - tied_for_highest.size()
 
-	if remaining_after_exclusion >= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
+	if market_order.size() <= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
+		# No hay margen para excluir nada sin violar CRAZY_BET_MIN_ALLOWED_MARKETS:
+		# se permiten todos los mercados disponibles y no se excluye ninguno.
+		excluded_ids = []
+	elif remaining_after_exclusion >= EconomyRules.CRAZY_BET_MIN_ALLOWED_MARKETS:
 		excluded_ids = tied_for_highest
 	else:
 		# Excluir a todos los mercados empatados dejaría 0 (o menos del mínimo) mercados disponibles:
