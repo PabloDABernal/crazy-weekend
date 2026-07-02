@@ -38,11 +38,27 @@ static func evaluate(market_offer: MarketOffer, match_state: MatchTickState) -> 
 static func ticks_until_resolution(market_offer: MarketOffer, match_state: MatchTickState) -> int
 ```
 
-Regla de `UNDECIDED`: mercados cuya condición aún puede caer a ambos lados (p. ej. `btts` con 0-0 en curso,
-over/under con margen todavía alcanzable). `WINNING`/`LOSING` = el resultado actual ya cae de ese lado
-(over ya superado = WINNING para "over"; imposible ya = LOSING). La refactorización debe dejar
-`PendingBetsTracker._is_bet_won` (resolución final) y `LiveBetEvaluator.evaluate` (estado vivo) apoyándose en
-la **misma** tabla de reglas por `market_id` para no duplicar criterios.
+Regla de `UNDECIDED` (**solo mercados monótonos**): aplica exclusivamente a mercados cuya condición solo
+puede viajar en un sentido dentro del partido y cuyo lado "aún no cumplido" es el estado por defecto del
+saque inicial (`btts`, over/under de goles/tarjetas/faltas, `first_scorer` antes del primer gol). Mientras la
+condición monótona siga sin cumplirse y el partido no haya terminado → `UNDECIDED` (el resultado aún puede
+caer a ambos lados y el lado "under/no" en curso es vacuo, no informa). `WINNING`/`LOSING` = el resultado
+actual ya cae irreversiblemente de ese lado (over ya superado = WINNING para "over"; imposible ya = LOSING).
+
+**Mercado `1x2` — decisión explícita (no UNDECIDED nunca):** `1x2` es **no monótono** (el líder puede
+cambiar de bando entre ticks), pero tiene un resultado en curso **bien definido en cada tick** (siempre hay
+un líder actual, o empate). Refleja **siempre el marcador actual**: `WINNING` si tu selección
+(`home`/`draw`/`away`) coincide con el resultado en curso, `LOSING` en caso contrario. **Nunca `UNDECIDED`.**
+Razón: `UNDECIDED` está reservado a mercados monótonos con lado por defecto vacuo; aplicar la lectura
+"rigurosa" de dejar `1x2` indeciso hasta el minuto 90 dejaría al mercado **más apostado** permanentemente
+neutro durante casi todo el partido, anulando la tensión viva ("vas ganando esta") que es el objetivo de la
+historia. La lectura por marcador en curso es además la que usan las casas de apuestas en vivo y la que
+espera el modelo mental del jugador. (Confirmado por Architect tras implementación: el código de
+`_evaluate_1x2` ya es correcto, no requiere cambios.)
+
+La refactorización debe dejar `PendingBetsTracker._is_bet_won` (resolución final) y
+`LiveBetEvaluator.evaluate` (estado vivo) apoyándose en la **misma** tabla de reglas por `market_id` para no
+duplicar criterios.
 
 ## 3. Panel de boleto vivo — UI
 
@@ -81,11 +97,21 @@ Nuevo overlay: `ResolutionFeedbackOverlay` (escena+script en
 los nodos — igual que `CrazyMomentOverlay`, para no reintroducir el patrón de bloqueo del Bug 1):
 ```gdscript
 class_name ResolutionFeedbackOverlay extends Control
-func show_win(amount_returned: int, net: int) -> void
+func show_win(amount_returned: int, net: int) -> void   # amount_returned = total acreditado; net = amount_returned - stake
 func show_loss(amount_lost: int) -> void
 ```
-- **Enérgico**: animación breve + número grande claro ("+$Y" ganado / "−$X" perdido), atribuible a la
-  apuesta. Sin condicionar la intensidad a `NarrativePhase` (dopamina alta siempre; ver nota del backlog).
+- **Jerarquía visual de la victoria (decisión explícita):** el número **grande/principal** es
+  `amount_returned` (el **total acreditado**, p. ej. `"+$1500"`); el detalle **secundario** es la ganancia
+  neta (p. ej. `"neto +$500"`). Razón: `amount_returned` es exactamente el número que el jugador ha estado
+  viendo como ancla en el boleto — E.7 lo titula `"Apuestas $X → devuelve $Y (neto +$Z)"` y `LiveBetTicket`
+  lo titula `"$stake @ cuota → $potential_return"` (Y = total, sin mostrar el neto). Así el jugador compara
+  el mismo número ancla antes ("devuelve $Y") y después ("cobras $Y"), y el desglose `(neto +$Z)` del overlay
+  replica el del preview de E.7. **Corrección respecto a la primera implementación**, que invirtió la
+  jerarquía (`+$net` como principal, `cobras $amount_returned` como detalle): el número principal debe ser
+  `amount_returned`, no `net`. (La derrota muestra `"−$X"` = stake perdido; su asimetría con la victoria es
+  intencional: en la derrota no hay "devolución" que comparar contra el boleto, solo el stake hundido.)
+- **Enérgico**: animación breve + número grande claro, atribuible a la apuesta. Sin condicionar la intensidad
+  a `NarrativePhase` (dopamina alta siempre; ver nota del backlog).
 - En fases avanzadas (3-4) el mensaje puede "hablarle" al jugador (canal de deterioro) — es contenido
   narrativo, coordinar con Game Designer; la lógica de selección puede reutilizar `NarrativePhase` igual que
   `CommentaryResolver`, pero **la intensidad visual no baja**.
