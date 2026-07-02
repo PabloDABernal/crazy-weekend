@@ -162,7 +162,7 @@ gestiona el campo principal (`current_money`) y las reglas de tick/jornada.
 var current_money: int
 var run_number: int                  # copia de MetaProgress.get_current_run_number() al iniciar la run
 var current_day: BettingDay.Day      # FRIDAY / SATURDAY / SUNDAY — ver 4.1
-var current_tick_index: int          # índice global de tick dentro de la jornada actual, reinicia por día
+var current_tick_index: int          # ciclo de reloj GLOBAL de la jornada (D.6: BetTickContext.clock_cycle, no un tick por partido), reinicia por día
 var peak_money_this_run: int         # máximo histórico alcanzado en la run, se actualiza en cada set_money
 
 func start_new_run() -> void          # calcula dinero inicial (ver B.1) y emite run_started
