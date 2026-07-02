@@ -1,0 +1,9 @@
+# Godot cache and generated files
+.godot/
+*.uid
+*.import
+data/saves/
+
+# OS
+.DS_Store
+Thumbs.db
