@@ -347,7 +347,197 @@ Los tests automatizados en `tests/` (ejecutables con Godot) validan la lógica d
 - Razón de "no disponible" no aparece o es incomprensible.
 
 
-## 8. Fuera de alcance de esta primera ronda de pruebas
+## 8. D.6 — Calendario de jornada con horarios escalonados (verificación manual)
+
+Los cambios técnicos clave de D.6 (reloj de jornada, kickoff_offset_minutes, dedupe de Momento Crazy basado en clock_cycle) ya están implementados y fueron revisados por Architect. Esta sección documenta los casos de integración y comportamiento del juego que deben verificarse manualmente en la máquina del Director, enfocándose en los dos cambios de mayor riesgo: la transición de partidos que no arrancaban bloqueantes → partidos PRE_MATCH no bloqueantes, y el cambio de dedupe del Crazy de tick_index_in_day → clock_cycle.
+
+### 8.1 Horario escalonado en una jornada normal
+
+**Objetivo:** Verificar que los kickoffs ocurren a horas distintas según los offsets configurados en LeagueRules, creando una ventana de mercados vigentes en lugar de que todos arranquen a la vez.
+
+**Setup:**
+- Abre una jornada cualquiera (ej. viernes o sábado) en una run nueva o en progreso.
+- Anota mentalmente (o en papel) las horas de kickoff de los ~10 partidos del día (si el selector de partidos muestra kickoff_offset_minutes, perfecto; si muestra hora bonita, aprunta esa).
+
+**Pasos:**
+
+1. **Kickoff 0 (arranca primero):**
+   - En el instante en que entra en la jornada, debe haber ≥1 partido **ya LIVE** (estado "en juego", tick 0 abierto).
+   - Los demás partidos deben verse en estado **PRE_MATCH** con hora de kickoff futura (no "en juego").
+   - **Señal de éxito:** TopBar muestra reloj de jornada (ej. "sábado 16:15" / "min 0 del día"); al menos un partido en rojo LIVE, otros en gris PRE_MATCH.
+   - **Señal de fallo:** Todos los partidos aparecen LIVE a la vez, o TopBar no muestra hora de jornada.
+
+2. **Avanza ticks y observa cambios de estado:**
+   - Juega 1-2 ticks del primer partido LIVE (debe resolver su tick 0, luego tick 1).
+   - Aprunta en qué "minuto de jornada" esté cuando el reloj avanzo (TopBar debe subir: min 0 → 15 → 30, etc.).
+   - **Observación clave:** Si los offsets están distribuidos en [0, 15, 15, 30, 45, 60, 75, 90, 90, 105] (o similar), entonces:
+     - Min 0–14: solo 1 partido LIVE (offset 0).
+     - Min 15–29: ahora 2–3 partidos LIVE (offsets 0, 15, 15 se activan).
+     - Min 30–44: 2–3 LIVE (offsets 30 se suma, offsets 15 terminan sus ticks → FINISHED).
+     - Y así sucesivamente, creando un patrón "arranque, pico, cola".
+   - **Señal de éxito:** La lista de estados (PRE_MATCH/LIVE/FINISHED) cambia a medida que avanzan ticks. En algún momento ves 2–3 partidos LIVE simultáneamente (el "pico").
+   - **Señal de fallo:** Siempre hay solo 1 partido LIVE, o de repente todos se vuelven LIVE a la vez en min 0.
+
+3. **Fin de jornada:**
+   - Avanza hasta que todos los partidos sean FINISHED (incluyendo el de offset 105, que LIVE en ciclos 7–12).
+   - El siguiente click en "Continuar" debe abrir la jornada siguiente (p. ej. sábado si estabas en viernes) sin bloquear.
+   - **Señal de éxito:** Transición suave de jornada sin pausa anormal.
+   - **Señal de fallo:** Bloqueo esperando un partido que nunca arrancó, o crash.
+
+### 8.2 Ningún partido PRE_MATCH bloquea antes de su kickoff
+
+**Objetivo:** Verificar que un partido que todavía no ha hecho kickoff (estado PRE_MATCH) no interfiere con la progresión del juego — no genera ticks obligatorios, no exige apuesta obligatoria, no emite comentarios.
+
+**Setup:**
+- Entra a una jornada donde haya al menos 2–3 partidos con offsets distintos (ej. offset 0 y offset 30).
+- Aprunta cuál es el primer partido LIVE (offset 0) y cuál está PRE_MATCH (offset 30).
+
+**Pasos:**
+
+1. **Partido PRE_MATCH no requiere apuesta:**
+   - En el primer tick (min 0–15), cambia el foco al partido con offset 30 (todavía PRE_MATCH).
+   - Mira la UI de apuestas: debe mostrar mercados de "pre-partido" (marcador inicial 0-0, min 0), pero **SIN etiqueta de "apuesta obligatoria"** ni overlay de "debes apostar".
+   - Intenta avanzar el tick sin hacer ninguna apuesta en ese partido PRE_MATCH.
+   - **Señal de éxito:** El botón "Continuar →" se habilita solo con la apuesta en el partido LIVE (offset 0), ignorando el PRE_MATCH.
+   - **Señal de fallo:** El botón no se habilita, o aparece un mensaje "debes apostar en todos los partidos" (indicaría que PRE_MATCH cuenta erróneamente como LIVE).
+
+2. **Partido PRE_MATCH no genera comentarios ni acción:**
+   - Mientras el partido PRE_MATCH sigue en ese estado, mira la zona de comentarios/acciones.
+   - **Si es correcto:** No hay comentarios específicos del partido PRE_MATCH, solo del partido LIVE (offset 0).
+   - **Señal de fallo:** Ves comentarios del partido PRE_MATCH como si estuviera en juego ("Saca del fondo...", "Arranca por la banda...").
+
+3. **Cambio a LIVE — tick 0 emitido en el momento exacto:**
+   - Juega hasta que el reloj llegue al minuto en que el partido con offset 30 debe hacerse LIVE (min 30 = ciclo 2).
+   - En el `advance_tick()` que cruza esa línea:
+     - El partido debe emitir su **tick 0 (kickoff)** inmediatamente.
+     - Debe pasar a status LIVE.
+     - Debe aparecer en la UI como "en juego, min 0" (no "pre-partido").
+   - **Señal de éxito:** Transición suave, sin bloqueo, sin tick duplicado.
+   - **Señal de fallo:** El partido no emite tick 0 en ese ciclo, o se salta, o bloquea.
+
+### 8.3 Botón "Continuar" nunca se bloquea esperando un partido que no ha empezado
+
+**Objetivo:** Validar el gate de avance de tick (§6 de la spec, `_matches_with_tick_open_this_cycle` y `_all_matches_satisfied_this_cycle`): solo cuentan partidos LIVE, nunca PRE_MATCH.
+
+**Setup:**
+- Simula una jornada con 3 partidos: offset 0 (LIVE desde ciclo 0), offset 30 (PRE_MATCH ciclos 0–1, LIVE desde ciclo 2), offset 60 (PRE_MATCH ciclos 0–3, LIVE desde ciclo 4).
+
+**Pasos:**
+
+1. **Ciclos 0–1 (solo offset 0 LIVE):**
+   - Cíclo 0 (min 0–15): solo 1 partido (offset 0) está LIVE. Apuesta el mínimo (50$) en ese partido.
+   - Click "Continuar →" → debe habilitarse de inmediato (no debe esperar a que offset 30 y 60 arranquen).
+   - Avanza a ciclo 1 (min 15–30).
+   - **Señal de éxito:** Sin bloqueo. El gate ignora los otros partidos PRE_MATCH.
+   - **Señal de fallo:** El botón dice "esperando apuestas en X partidos" refiriéndose a los PRE_MATCH.
+
+2. **Ciclo 2 (offset 0 LIVE, offset 30 acaba de empezar LIVE, offset 60 PRE_MATCH):**
+   - Min 30–45 (ciclo 2): ahora 2 partidos LIVE (offsets 0 y 30).
+   - Apuesta en ambos. Click "Continuar →".
+   - **Señal de éxito:** Se habilita sin esperar al offset 60 (que sigue PRE_MATCH).
+   - **Señal de fallo:** Bloqueo, o mensaje mencionando "3 partidos" en lugar de "2".
+
+3. **Ciclo 4 (todos LIVE):**
+   - Min 60–75 (ciclo 4): los 3 están LIVE.
+   - Apuesta en los 3. Click "Continuar →".
+   - **Señal de éxito:** Botón se habilita normalmente.
+   - **Señal de fallo:** Algún comportamiento raro diferente a ciclos anteriores (no debería haber diferencia).
+
+### 8.4 Jornada especial concentrada (CONCENTRATED schedule)
+
+**Objetivo:** Verificar que en una jornada marcada CONCENTRATED (ej. última jornada de la temporada, "Super Sunday"), todos o casi todos los partidos comparten kickoff, y que el reparto por días (viernes/sábado/domingo) se ajusta correctamente — los días vacíos se saltan sin bloquear.
+
+**Setup:**
+- Juega hasta la **última jornada de la temporada** (jornada 38 u otra, dependiendo de TOTAL_MATCHDAYS en LeagueRules).
+- O, si quieres forzar, edita manualmente `LeagueRules.SPECIAL_MATCHDAY_EVERY_N` para que una jornada anterior sea marcada CONCENTRATED (aunque no es recomendado en una sesión de test manual, es solo para debugging).
+
+**Pasos:**
+
+1. **Todos/casi todos los partidos comparten offset:**
+   - Entra en la jornada especial.
+   - Anota los offsets de los ~10 partidos del día (o mirá el selector de partidos para ver kickoffs).
+   - **Si es correcto:** Todos (o la mayoría) tienen el mismo offset, ej. todos con offset 0.
+   - **Señal de éxito:** En min 0 del día, **todos los ~10 partidos son LIVE a la vez** (no 1–3 como en escalonado).
+   - **Señal de fallo:** Offsets sigue siendo [0, 15, 15, 30, ...] (escalonado normal), cuando debería ser [0, 0, 0, ...] (concentrado).
+
+2. **Días vacíos se saltan sin bloqueo:**
+   - Si la jornada CONCENTRATED tiene todos los partidos en **solo 1 día** (ej. todo en domingo), entonces viernes y sábado estarán vacíos.
+   - Entra a viernes. Debe estar **completamente vacío** — 0 partidos LIVE, 0 partidos PRE_MATCH.
+   - Click "Continuar →" en viernes vacío.
+   - **Si es correcto:** El juego **salta instantáneamente** a sábado (o al primer día con partidos) sin mostrar ninguna pantalla de "no hay partidos", sin countdown, sin bloqueo.
+   - **Nota según sección 11.2 de spec:** La Historia E.10 (pantalla "No hay partidos hoy") aún no está implementada. Por eso el salto es silencioso — **esto es lo esperado, NO es un bug**. Si ves una pantalla de descanso o aviso, eso sería implementación de E.10, fuera del scope de D.6 (reporte informativo, no fallo).
+   - **Señal de fallo:** Bloqueo en viernes vacío, o crash, o que no avance a sábado.
+
+3. **Todos los partidos LIVE a la vez, con pico de apuestas:**
+   - Una vez en el día con partidos (domingo), todos los ~10 están LIVE (offset 0).
+   - Intenta jugar 1–2 ticks: debería haber apuesta obligatoria en **todos** los 10 partidos (mucho más trabajo que un día escalonado).
+   - **Señal de éxito:** La UI muestra "10 partidos LIVE", selector múltiple, apuesta obligatoria repartida. Sin bloqueo, sin error.
+   - **Señal de fallo:** Partidos que no aparecen en la oferta, o crash al intentar cambiar entre 10 partidos LIVE.
+
+### 8.5 Momento Crazy con partidos en horarios distintos — verificación de regresión del dedupe (clock_cycle)
+
+**Objetivo:** Validar el fix del Momento Crazy que se coordina con D.6: el dedupe cambió de `tick_index_in_day` (que era común a todos, cuando todos arrancaban a la vez) a `clock_cycle` (el ciclo de reloj global, independiente de cuándo arranca cada partido). **Este es el caso de regresión más importante de D.6**, porque el cambio de base técnica fue lo que habilitó la feature.
+
+**Contexto técnico (§9 y §11.1 de spec):**
+- Antes: Todos los partidos tenían `tick_index` común en lockstep. Deduplicación: si `tick_index_in_day == X`, Crazy dispara una sola vez.
+- Ahora: Partidos arrancan en ciclos distintos con `kickoff_offset`, cada uno tiene su `current_tick_index`. Deduplicación: se basa en `(day, clock_cycle)` de `BetTickContext`, que es el ciclo del reloj global (0–5 típicamente, solapado con todos los ticks de todos los partidos).
+
+**Setup:**
+- Juega varias runs hasta que se active un **Momento Crazy** en una jornada donde haya múltiples partidos con offsets distintos (ej. una jornada STAGGERED normal).
+- Ej. offset 0, 15, 30, ... — el ideal es que al dispararse Crazy, haya partidos recién arrancados, a mitad, etc.
+
+**Pasos:**
+
+1. **Crazy dispara exactamente una sola vez (no múltiples veces por el mismo ciclo):**
+   - Llega a un tick donde se activa Momento Crazy (overlay rojo/vino, sello "CRAZY", % forzoso visible).
+   - Anota el **% forzoso** mostrado (ej. 50%, 70%) y el **importe exacto** (ej. 200$ si saldo es 400).
+   - Ahora, **sin apostar aún**, cambia el foco entre partidos en distintas fases:
+     - Partido A: offset 0, ya en tick 2 (mitad del match).
+     - Partido B: offset 15, recién emitió tick 0 (kickoff).
+     - Partido C: offset 30, todavía PRE_MATCH (no está LIVE aún).
+   - Mira en cada uno si el overlay rojo de Crazy sigue siendo **idéntico** (mismo %, mismo importe, mismos mercados permitidos).
+   - **Señal de éxito:** Overlay invariante entre partidos. El % y el importe NO cambian cuando cambias de partido. (Esto valida que el Crazy se dispara UNA sola vez por `clock_cycle`, no por partido.)
+   - **Señal de fallo:** Overlay cambia entre partidos (ej. en A es 50%, en B es 70%) — indica que se está disparando múltiples veces incorrectamente, dedupe roto.
+
+2. **"Continuar" se habilita tras apostar el monto en un solo partido:**
+   - Apostá el importe forzoso en uno de los partidos LIVE (ej. Partido A).
+   - El botón "Continuar →" debe habilitarse de inmediato.
+   - **Señal de éxito:** Sin bloqueo. Esto es exactamente lo que se corrigió en el Bug 1.
+   - **Señal de fallo:** Botón sigue deshabilitado, o pide apuesta también en otros partidos.
+
+3. **Mercados permitidos son los mismos en todos los partidos:**
+   - Durante el mismo Crazy, mira qué mercados están permitidos para apostar (Crazy restringe a 1–2 mercados típicamente).
+   - Ej. "solo 1x2 y BTTS" o "solo 1x2".
+   - Cambia entre partidos: la restricción debe ser **idéntica** (mismos mercados permitidos, mismos bloqueados).
+   - **Señal de éxito:** Restricción uniforme.
+   - **Señal de fallo:** En Partido A puedes usar "1x2 y BTTS", en Partido B solo "1x2" — inconsistencia indica que el Crazy se está evaluando por partido, no globalmente.
+
+4. **Dos Crazy en la misma run, en ciclos distintos:**
+   - Si tienes suerte y te toca un segundo Momento Crazy en la misma run (ej. viernes y sábado), verifica que el segundo se dispare correctamente.
+   - Debe mostrar un overlay rojo nuevo (puede ser % diferente, importe diferente — eso es normal, es otro Crazy sorteado).
+   - **Señal de éxito:** Segundo Crazy dispara sin problema, sin "quedarse inhibido" por el primero.
+   - **Señal de fallo:** Segundo Crazy no aparece, o aparece pero está "pegado" al anterior.
+
+5. **Invariante de arranque — siempre hay LIVE en el rango sorteado:**
+   - **Contexto:** Según la decisión 11.1, el sorteo de Crazy elige un `clock_cycle` en `[1, 5]` (ciclos medios de la jornada). La invariante implementada en `assign_staggered_offsets` garantiza que siempre hay ≥1 partido con offset 0, que LIVE en ciclos 0–5. Por tanto, cualquier ciclo sorteado en `[1, 5]` tiene ≥1 partido LIVE que emite su tick en ese ciclo → Crazy siempre dispara, nunca se pierde silenciosamente.
+   - **Cómo verificar:** Juega varias runs (10–20) en jornadas STAGGERED. En cada una, verifica que **Crazy siempre dispara** (al menos una vez por run, aunque puede ser ninguno si el sorteo no activa en esa run). Nunca debe ocurrir una situación donde "estoy en sábado, debería haber Crazy pero no aparece nada y el día termina".
+   - **Señal de éxito:** Crazy dispara consistentemente cuando se espera (a veces sí, a veces no, pero nunca desaparece silenciosamente sin razón).
+   - **Señal de fallo:** Juega 5–10 runs sin ver ningún Crazy (improbable, ~8% de chance por day × 3 days = ~22% por run; si no ves ninguno en 10 runs es sospechoso). O ves que un día debería tener Crazy pero no aparece (auditar la consola de Godot).
+
+---
+
+**Resumen de señales de fallo críticas para D.6:**
+- Todos los partidos LIVE a la vez en una jornada STAGGERED (debería haber escalonado 1–3 máximo).
+- Partido PRE_MATCH requiere apuesta obligatoria (debe permitir avanzar sin apostar).
+- Botón "Continuar →" bloqueado esperando un partido que aún no ha arrancado (PRE_MATCH).
+- Jornada CONCENTRATED no concentra kickoffs (offsets siguen siendo [0, 15, 30, ...]).
+- Día vacío en jornada concentrada no se salta (bloqueo).
+- Momento Crazy cambia de % o importe cuando cambias entre partidos (dedupe roto).
+- Momento Crazy no se habilita "Continuar" tras apostar en un partido (Bug 1 reintroducido).
+- Mercados permitidos por Crazy son distintos entre partidos (Crazy evaluado por partido, no globalmente).
+- Momento Crazy desaparece silenciosamente en una jornada STAGGERED (invariante de arranque violada).
+
+## 9. Fuera de alcance de esta primera ronda de pruebas
 
 - Fases narrativas 3 y 4 del deterioro (requieren 13+ y 21+ runs jugadas — poco práctico en una sesión corta).
 - Contenido narrativo real: todo el texto de comentarios, Expediente e intro está en placeholders "pendiente de redacción" — no es un bug, falta escribirlo.
