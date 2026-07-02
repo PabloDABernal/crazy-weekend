@@ -21,6 +21,14 @@ static func odds_range_from_probability_range(p_min: float, p_max: float) -> Vec
 	return Vector2(min(odds_from_p_min, odds_from_p_max), max(odds_from_p_min, odds_from_p_max))
 
 
+## Cuota "congelada" de una oferta de mercado (misma fórmula usada para pagar y para mostrar):
+## 1 / punto medio del rango de probabilidad mostrado. Fuente única para `PayoutCalculator` y
+## `LiveBetTicket` -- evita que la cuota mostrada en el boleto y la usada al pagar diverjan.
+static func frozen_odds_for_offer(offer: MarketOffer) -> float:
+	var shown_center: float = (offer.displayed_probability_min + offer.displayed_probability_max) / 2.0
+	return odds_from_probability(shown_center)
+
+
 ## Ganancia potencial (devolución total, stake incluido) de un stake a una cuota dada.
 static func potential_return(stake: int, odds: float) -> int:
 	return int(ceil(stake * odds))

@@ -33,9 +33,8 @@ func setup(pending_bet: PendingBet, match_label_text: String) -> void:
 	var offer: MarketOffer = pending_bet.market_offer
 	_market_label.text = "%s · %s" % [_format_market_name(offer.market_id), String(offer.option_key)]
 
-	var odds_range: Vector2 = OddsMath.odds_range_from_probability_range(offer.displayed_probability_min, offer.displayed_probability_max)
-	var odds_center: float = (odds_range.x + odds_range.y) / 2.0
-	var potential_return: int = OddsMath.potential_return(pending_bet.stake, odds_center)
+	var odds_center: float = OddsMath.frozen_odds_for_offer(offer)
+	var potential_return: int = PayoutCalculator.compute_payout(pending_bet)
 	_stake_label.text = "$%d @ %.2f → $%d" % [pending_bet.stake, odds_center, potential_return]
 
 

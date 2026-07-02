@@ -13,6 +13,5 @@ class_name PayoutCalculator extends RefCounted
 ## Cuota mostrada al jugador en el momento de apostar = 1 / p_shown_center, usando el punto medio del
 ## rango mostrado (displayed_probability_min/max) como cuota "congelada" al momento de apostar.
 static func compute_payout(pending_bet: PendingBet) -> int:
-	var shown_center: float = (pending_bet.market_offer.displayed_probability_min + pending_bet.market_offer.displayed_probability_max) / 2.0
-	var implied_odds: float = OddsMath.odds_from_probability(shown_center)
+	var implied_odds: float = OddsMath.frozen_odds_for_offer(pending_bet.market_offer)
 	return OddsMath.potential_return(pending_bet.stake, implied_odds)

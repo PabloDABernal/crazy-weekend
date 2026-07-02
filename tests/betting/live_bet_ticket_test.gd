@@ -50,9 +50,7 @@ func _test_setup_shows_stake_odds_and_payout() -> void:
 	var pending_bet: PendingBet = _build_pending_bet(&"goals_ou_2_5", &"over", 100, 2.5)
 	ticket.setup(pending_bet, "Equipo A vs Equipo B")
 
-	var odds_range: Vector2 = OddsMath.odds_range_from_probability_range(pending_bet.market_offer.displayed_probability_min, pending_bet.market_offer.displayed_probability_max)
-	var odds_center: float = (odds_range.x + odds_range.y) / 2.0
-	var expected_payout: int = OddsMath.potential_return(pending_bet.stake, odds_center)
+	var expected_payout: int = PayoutCalculator.compute_payout(pending_bet)
 
 	if not ticket._stake_label.text.contains(str(pending_bet.stake)):
 		_fail("StakeLabel debería incluir el importe apostado ($%d), texto=%s" % [pending_bet.stake, ticket._stake_label.text])
