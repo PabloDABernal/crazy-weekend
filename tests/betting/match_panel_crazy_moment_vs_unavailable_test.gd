@@ -48,6 +48,8 @@ func _run_test() -> void:
 		_build_offer(&"1x2", &"home"),
 		_build_offer(&"1x2", &"draw"),
 		_build_offer(&"1x2", &"away"),
+		_build_offer(&"goals_ou_1_5", &"over"),
+		_build_offer(&"goals_ou_1_5", &"under"),
 	]
 
 	panel.on_tick_opened(context, match_state, null, null, null)
@@ -55,6 +57,7 @@ func _run_test() -> void:
 
 	var first_scorer_widget: MarketWidget = panel._market_widgets_by_id[&"first_scorer"]
 	var market_1x2_widget: MarketWidget = panel._market_widgets_by_id[&"1x2"]
+	var goals_ou_1_5_widget: MarketWidget = panel._market_widgets_by_id[&"goals_ou_1_5"]
 
 	if not first_scorer_widget._is_unavailable:
 		_fail("first_scorer debería quedar set_unavailable tras on_tick_opened sin oferta para ese mercado")
@@ -79,12 +82,18 @@ func _run_test() -> void:
 	if first_scorer_widget._is_restricted:
 		_fail("first_scorer no debería quedar marcado _is_restricted -- la causa real es D.7, no el Momento Crazy")
 
-	# El mercado sí vigente pero no permitido por el Crazy Bet debe quedar restringido normalmente (no
-	# se rompe el comportamiento ya aprobado del Momento Crazy).
-	if not market_1x2_widget._is_restricted:
-		_fail("1x2 SÍ está permitido por el Crazy Bet -- no debería quedar restringido")
+	# "1x2" sí está permitido por el Crazy Bet, así que no debe quedar restringido.
+	if market_1x2_widget._is_restricted:
+		_fail("1x2 está permitido por el Crazy Bet -- no debería quedar _is_restricted")
 	if market_1x2_widget._disabled_overlay.visible:
 		_fail("1x2 está permitido por el Crazy Bet -- DisabledOverlay no debería estar visible")
+
+	# "goals_ou_1_5" sí está vigente en el tick pero NO está entre los mercados permitidos por el
+	# Crazy Bet -- debe seguir el camino normal de restricción.
+	if not goals_ou_1_5_widget._is_restricted:
+		_fail("goals_ou_1_5 NO está permitido por el Crazy Bet -- debería quedar _is_restricted")
+	if not goals_ou_1_5_widget._disabled_overlay.visible:
+		_fail("goals_ou_1_5 NO está permitido por el Crazy Bet -- DisabledOverlay debería estar visible")
 
 	_finish()
 
