@@ -75,7 +75,11 @@ const DISPLAY_DURATION_SECONDS: float = 1.8   # rango sugerido 1.5–2.0; alinea
 
 ## Muestra la pantalla breve para un día sin partidos y arranca el temporizador de auto-cierre.
 ## empty_day  = día que quedó sin partidos (para el título/formato de UI)
-## next_day   = día inmediatamente siguiente al que avanzará la run (para DetailLabel)
+## next_day   = próximo día CON partidos al que llegará la run (para DetailLabel).
+##              IMPORTANTE (corrección post-commit 0a8c733, ver sección 9): NO es el día
+##              inmediatamente siguiente en el calendario, sino el primer día posterior que
+##              tenga partidos. En una jornada CONCENTRATED donde viernes y sábado están ambos
+##              vacíos, tanto la pantalla de viernes como la de sábado deben decir "domingo".
 func show_empty_day(empty_day: BettingDay.Day, next_day: BettingDay.Day) -> void
 ```
 
@@ -138,7 +142,8 @@ La cascada es **automática y por reentrada**, sin código extra:
 
 ```
 _start_day_and_countdown(FRIDAY)
-  viernes vacío -> _empty_day_overlay.show_empty_day(FRIDAY, SATURDAY)  [timer 1.8s]
+  viernes vacío -> _empty_day_overlay.show_empty_day(FRIDAY, SUNDAY)  [timer 1.8s]
+    (next_day = SUNDAY, no SATURDAY: sábado también está vacío, ver sección 9)
     -> skip_finished -> _on_matchday_finished(-1) -> current_day = SATURDAY
        -> _advance_to_next_day(SATURDAY) -> _start_day_and_countdown(SATURDAY)
          sábado vacío -> _empty_day_overlay.show_empty_day(SATURDAY, SUNDAY)  [timer 1.8s]
@@ -146,6 +151,11 @@ _start_day_and_countdown(FRIDAY)
               -> _advance_to_next_day(SUNDAY) -> _start_day_and_countdown(SUNDAY)
                 domingo con partidos -> _start_landing_countdown()  (flujo normal)
 ```
+
+Nótese que **el avance de día sigue siendo día-a-día** (`_on_matchday_finished(-1)` avanza viernes→
+sábado→domingo, sin saltarse sábado): cada día vacío conserva su propia pantalla y su propio
+temporizador. Lo único que cambia respecto al commit `0a8c733` es el **texto** de esas pantallas
+(`next_day` apunta al próximo día con partidos, no al inmediatamente siguiente).
 
 Cada día vacío muestra **su propia** pantalla con su propio temporizador, en serie. La misma instancia
 de overlay se reutiliza (no se instancia una por día): al reentrar `show_empty_day`, se re-pueblan los
@@ -172,8 +182,9 @@ labels y se reinicia el timer.
   extraer/reutilizar; decidir si el overlay recibe strings ya formateados o el enum `BettingDay.Day`
   es libre para Programmer (ambas opciones son triviales; recomendado pasar el enum y que el overlay
   formatee, para que el overlay sea autónomo).
-- `_next_day_after(day)`: helper trivial nuevo en `BettingRoot` (FRIDAY→SATURDAY, SATURDAY→SUNDAY),
-  mismo mapeo que ya usa `_on_matchday_finished`. Sólo se usa para poblar `DetailLabel`.
+- Para poblar `DetailLabel` NO se usa el día inmediatamente siguiente, sino el **próximo día con
+  partidos** (`_next_day_with_matches`, ver sección 9). El helper `_next_day_after` (FRIDAY→SATURDAY,
+  SATURDAY→SUNDAY) sigue existiendo pero pasa a ser un paso interno de `_next_day_with_matches`.
 - Estilos/tipografía del overlay: seguir lo que ya usan los otros overlays de `betting_root.tscn`;
   no se especifica look final (fuera de alcance de esta historia, igual que en E.8).
 
@@ -190,6 +201,92 @@ labels y se reinicia el timer.
 
 ---
 
+## 9. Resolución de ambigüedad: `next_day` = "próximo día CON partidos" (post-commit `0a8c733`)
+
+### 9.1 El problema (real, no teórico)
+
+En la implementación entregada (`betting_root.gd`, commit `0a8c733`), `_start_day_and_countdown`
+llama a `_empty_day_overlay.show_empty_day(day, _next_day_after(day))`, donde `_next_day_after`
+devuelve el **día inmediatamente siguiente en el calendario** (FRIDAY→SATURDAY, SATURDAY→SUNDAY).
+
+En una jornada CONCENTRATED, `_concentrated_matches_for_day` devuelve `[]` para **viernes y sábado
+a la vez** (todos los partidos caen en domingo). Ese caso doble-vacío **sí es alcanzable** con los
+números reales de la liga: es exactamente el "Super Sunday" que motiva la historia. La cascada real
+que ve el jugador es entonces:
+
+- Pantalla de viernes: *"La jornada se concentra en sábado."* (`next_day = SATURDAY`)
+- Acto seguido aparece la pantalla de sábado, que **también está vacío**, contradiciendo lo que el
+  jugador acaba de leer.
+
+Además, el texto lo fijó Game Designer (`backlog.md`, Historia E.10, línea 229) asumiendo
+explícitamente que `[día]` es *"el nombre del **próximo día con partidos**"*. Hay por tanto una
+desalineación real entre lo que el texto promete y lo que el dato entregado (`_next_day_after`) da.
+
+### 9.2 Decisión
+
+`next_day` **cambia** para ser el **próximo día CON partidos**, no el inmediatamente siguiente.
+
+Justificación frente a "aceptar la cascada porque se resuelve en segundos":
+- El coste de complejidad es mínimo: se reutiliza la función pura ya existente
+  `_matches_for_day(matchday_fixture, day)`, sin tocar estado ni el motor de D.6.
+- El defecto es visible y directamente contradictorio con el copy aprobado por Game Designer; no es
+  un detalle cosmético invisible.
+- La invariante de avance (día-a-día vía `_on_matchday_finished(-1)`) NO cambia: sólo cambia el
+  string que se muestra. Riesgo de regresión prácticamente nulo.
+
+### 9.3 Cómo calcularlo (para Programmer, sin ambigüedad)
+
+Reemplazar en `_start_day_and_countdown` la llamada:
+
+```gdscript
+_empty_day_overlay.show_empty_day(day, _next_day_after(day))
+```
+
+por:
+
+```gdscript
+_empty_day_overlay.show_empty_day(day, _next_day_with_matches(day))
+```
+
+Añadir el helper `_next_day_with_matches`, que hace un lookahead puro sobre el calendario ya
+generado usando `_matches_for_day` (función existente, sin efectos secundarios: NO llama a
+`_start_day`, no instancia paneles, no muta nada):
+
+```gdscript
+## Devuelve el primer día POSTERIOR a `from_day` que tiene al menos un partido, consultando el
+## reparto por día ya determinista (_matches_for_day) sin arrancar ni mutar ningún día. Se usa sólo
+## para poblar EmptyDayOverlay.DetailLabel con el próximo día con partidos (E.10, sección 9). En una
+## jornada CONCENTRATED con viernes y sábado vacíos, devuelve SUNDAY para ambos. Domingo (último día
+## de la run) es el piso garantizado: en CONCENTRATED siempre tiene todos los partidos.
+func _next_day_with_matches(from_day: BettingDay.Day) -> BettingDay.Day:
+    var matchday_fixture: MatchdayFixture = LeagueState.get_current_matchday_fixture()
+    var candidate: BettingDay.Day = from_day
+    while candidate != BettingDay.Day.SUNDAY:
+        candidate = _next_day_after(candidate)
+        if matchday_fixture != null and not _matches_for_day(matchday_fixture, candidate).is_empty():
+            return candidate
+    return candidate   # SUNDAY: piso garantizado, se devuelve aunque no se llegara a comprobar antes
+```
+
+Notas de implementación:
+- `_next_day_after` se conserva tal cual; deja de usarse directamente en `_start_day_and_countdown`
+  y pasa a ser el paso unitario dentro de `_next_day_with_matches`.
+- El bucle termina siempre: cada iteración avanza `candidate` hacia SUNDAY, que es el terminal.
+- Es correcto tanto para STAGGERED (donde ningún día queda vacío con TEAM_COUNT=20, así que
+  `_next_day_with_matches` coincide con `_next_day_after`) como para CONCENTRATED (viernes/sábado
+  vacíos → devuelve SUNDAY).
+- No se toca `EmptyDayOverlay`: su firma `show_empty_day(empty_day, next_day)` no cambia; sólo cambia
+  el valor que `BettingRoot` le pasa como `next_day`. El overlay sigue formateando
+  `"La jornada se concentra en %s."` con ese día.
+
+### 9.4 Verificación adicional para QA (ampliación de la sección 8, punto 5)
+
+En una jornada CONCENTRATED con viernes y sábado vacíos: la pantalla de viernes Y la de sábado deben
+decir ambas **"domingo"** (nunca "sábado" en la de viernes). Confirmar que no hay contradicción entre
+lo que anuncia una pantalla y la que aparece justo después.
+
+---
+
 ## 8. Checklist para Programmer
 
 1. Crear `scenes/betting/empty_day_overlay.tscn` + `.gd` (`class_name EmptyDayOverlay`), calcado del
@@ -200,5 +297,9 @@ labels y se reinicia el timer.
 3. Conectar `skip_finished → _on_empty_day_skip_finished` en `_ready()`.
 4. Modificar `_start_day_and_countdown` (sección 4.2) y añadir `_on_empty_day_skip_finished`
    (sección 4.3) y `_next_day_after` (sección 6).
-5. Verificar cascada viernes+sábado vacíos → domingo con partidos: dos pantallas en serie, luego
-   flujo normal, sin quedar bloqueado ni abrir tick en días vacíos.
+5. **Corrección post-`0a8c733` (sección 9)**: pasar a `show_empty_day` el próximo día CON partidos
+   (`_next_day_with_matches`), no el inmediatamente siguiente (`_next_day_after`). Añadir el helper
+   `_next_day_with_matches` (sección 9.3).
+6. Verificar cascada viernes+sábado vacíos → domingo con partidos: dos pantallas en serie, ambas
+   diciendo "domingo" (sección 9.4), luego flujo normal, sin quedar bloqueado ni abrir tick en días
+   vacíos.
