@@ -13,6 +13,7 @@ instalado durante el desarrollo, así que nada de esto se ejecutó todavía — 
 
 ## Prioridad de ejecución recomendada
 
+0. **Bug 1 — Momento Crazy bloqueante** (sección 5, nueva) — es el fix más reciente y el único que motivó una sesión de playtest interrumpida. Probalo primero.
 1. **Cerrar y reabrir el juego después de jugar una run** (sección 3.1) — valida el fix de persistencia que se corrigió durante el desarrollo (antes no se guardaba nada).
 2. **Intentar apostar más dinero del que tenés** (sección 3.2) — valida el fix de validación de stake.
 3. Después, el resto en orden: golden path → casos extremos → errores.
@@ -53,7 +54,18 @@ Si tenés una apuesta pendiente que se resuelve favorablemente justo en el mismo
 - Cambiar de foco entre partidos en medio de un Momento Crazy — la restricción debe aplicar a todos los partidos, no solo al que tenías enfocado originalmente.
 - Cerrar el juego a mitad de una jornada (no en el cierre de un día) y reabrir — no debería haber crash ni estado roto; lo esperable es que arranque de nuevo desde el principio (no hay guardado a mitad de run, es una limitación conocida del MVP, no un bug).
 
-## 5. Fuera de alcance de esta primera ronda de pruebas
+## 5. Bug 1 — Momento Crazy bloqueante (verificación del fix)
+
+El fix ya está commiteado (código + tests automatizados), pero los tests no se pudieron ejecutar en el entorno de desarrollo (sin Godot instalado) — esto es lo primero que deberías probar en tu máquina.
+
+1. **Disparo único por tick**: llegá a un Momento Crazy con 2+ partidos vivos a la vez (overlay rojo/vino, sello "CRAZY"). Anotá el % forzoso y el importe exacto mostrado. Dejá pasar varios ticks de esos partidos sin apostar todavía — el overlay **no debe cambiar** (mismo %, mismo importe, mismos mercados permitidos). Antes del fix, cambiaba con cada partido que resolvía.
+2. **"Continuar" se habilita**: apostá el importe forzoso en un mercado permitido y confirmá. El botón "Continuar →" debe habilitarse de inmediato. Este es el bloqueo exacto que interrumpió tu sesión de playtest.
+3. **Mercado único no se bloquea**: si en algún Momento Crazy solo ves 1 mercado permitido, ese mercado nunca debe aparecer como restringido — siempre tiene que quedar al menos una opción para poder apostar.
+4. **Dos Crazy en la misma run**: si te toca un Momento Crazy en viernes y otro en sábado, el segundo debe dispararse con normalidad (no debe quedar "inhibido" por haberse disparado ya uno antes).
+
+Si alguno de estos falla, copiame qué viste paso a paso — probablemente hace falta otra vuelta de Programmer.
+
+## 6. Fuera de alcance de esta primera ronda de pruebas
 
 - Fases narrativas 3 y 4 del deterioro (requieren 13+ y 21+ runs jugadas — poco práctico en una sesión corta).
 - Contenido narrativo real: todo el texto de comentarios, Expediente e intro está en placeholders "pendiente de redacción" — no es un bug, falta escribirlo.
