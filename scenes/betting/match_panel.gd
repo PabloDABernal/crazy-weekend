@@ -33,6 +33,7 @@ var _has_bet_this_tick: bool = false
 var _market_widgets_by_id: Dictionary = {}       # market_id (StringName) -> MarketWidget
 var _active_crazy_bet: CrazyBetContext = null
 var _phrase_bank: CommentaryPhraseBank = null
+var _current_tick_market_ids: Array[StringName] = []  # mercados con oferta vigente este tick (ver E.9 fix)
 
 
 func _ready() -> void:
@@ -65,6 +66,7 @@ func on_tick_opened(context: BetTickContext, match_state: MatchTickState, home_t
 		_commentary_panel.refresh(lines)
 
 	var offers_by_market: Dictionary = _group_offers_by_market(context.available_markets)
+	_current_tick_market_ids.assign(offers_by_market.keys())
 	for market_id in _market_widgets_by_id.keys():
 		var widget: MarketWidget = _market_widgets_by_id[market_id]
 		if offers_by_market.has(market_id):
@@ -84,11 +86,15 @@ func on_tick_opened(context: BetTickContext, match_state: MatchTickState, home_t
 	_tick_status_label.text = "⬇ Apuesta algo en este partido"
 
 
-## Aplica la restricción de mercados/stake forzoso del Momento Crazy vigente a todos los MarketWidget.
-## Consume CrazyBetContext ya resuelto por CrazyBetResolver (B.3) -- no recalcula nada.
+## Aplica la restricción de mercados/stake forzoso del Momento Crazy vigente a los MarketWidget con
+## oferta vigente en el tick actual (_current_tick_market_ids, poblado por on_tick_opened). Los
+## mercados ya retirados por D.7 (fuera de _current_tick_market_ids) se dejan intactos en su estado
+## set_unavailable -- Reviewer, bug bloqueante D.7+E.9: iterar los 8 widgets fijos del catálogo
+## marcaba set_restricted(true) también sobre mercados ya "no disponibles", mostrando ambos overlays
+## simultáneamente cuando la causa real era solo D.7 (ver E.9 sección 3.1: overlays distinguibles).
 func apply_crazy_moment_restriction(crazy_bet: CrazyBetContext) -> void:
 	_active_crazy_bet = crazy_bet
-	for market_id in _market_widgets_by_id.keys():
+	for market_id in _current_tick_market_ids:
 		var widget: MarketWidget = _market_widgets_by_id[market_id]
 		if crazy_bet.allowed_market_ids.has(market_id):
 			widget.apply_forced_stake(crazy_bet.forced_stake_amount)
