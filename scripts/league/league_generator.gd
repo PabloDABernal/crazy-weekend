@@ -91,7 +91,9 @@ static func _generate_avg_goals(position: PlayerDef.Position, rng: RandomNumberG
 ## Algoritmo de round-robin estándar (círculo de rotación, 1 equipo fijo + resto rotando) para 38
 ## jornadas (19 ida + 19 vuelta) con 20 equipos, garantizando que cada equipo juega exactamente una
 ## vez por jornada. Ver .ai-studio/specs/epic-d-liga-y-partidos.md sección 2.3.
-static func generate_calendar(teams: Array[TeamDef], season_number: int) -> Array[MatchdayFixture]:
+## D.6: además asigna horario (MatchdayScheduler.build_schedule) a cada jornada generada, para que el
+## horario sea estable por temporada (mismo rng_seed -> mismo calendario y mismos horarios).
+static func generate_calendar(teams: Array[TeamDef], season_number: int, rng: RandomNumberGenerator) -> Array[MatchdayFixture]:
 	var team_ids: Array[StringName] = []
 	for team in teams:
 		team_ids.append(team.team_id)
@@ -134,6 +136,7 @@ static func generate_calendar(teams: Array[TeamDef], season_number: int) -> Arra
 			var matchday := MatchdayFixture.new()
 			matchday.matchday_index = matchday_index
 			matchday.matches = matches
+			MatchdayScheduler.build_schedule(matchday, rng)
 			calendar.append(matchday)
 
 			matchday_index += 1

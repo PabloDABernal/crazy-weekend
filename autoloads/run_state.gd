@@ -7,7 +7,7 @@ extends Node
 var current_money: int = 0
 var run_number: int = 0                       # copia de MetaProgress.get_current_run_number() al iniciar la run
 var current_day: BettingDay.Day = BettingDay.Day.FRIDAY
-var current_tick_index: int = 0               # índice global de tick dentro de la jornada actual, reinicia por día
+var current_tick_index: int = 0               # ciclo de reloj GLOBAL dentro de la jornada actual (D.6: BetTickContext.clock_cycle, no tick_index_in_day de un partido), reinicia por día
 var peak_money_this_run: int = 0              # máximo histórico alcanzado en la run
 
 ## Plan de Momentos Crazy de la run activa (B.4). No persistente, se regenera en cada start_new_run().
@@ -16,13 +16,23 @@ var crazy_moment_schedule: Array[CrazyMomentScheduler.ScheduledCrazyMoment] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _run_ended: bool = false
 
-## Dedupe de disparo de Momento Crazy por tick (fix Bug 1, §7.1): bet_tick_opened se emite una vez por
-## cada partido vivo del día, todos con el mismo (day, tick_index_in_day) cuando el tick es Crazy.
-## Sin este recuerdo, _on_bet_tick_opened construiría y emitiría un CrazyBetContext distinto (re-sorteado)
-## por cada partido, violando el contrato de "un único CrazyBetContext por tick" (epic-e §3.4 / epic-b B.3).
+## Dedupe de disparo de Momento Crazy por tick (fix Bug 1, §7.1; reclave a ciclo de reloj en D.6 §9):
+## bet_tick_opened se emite una vez por cada partido vivo del día, todos con el mismo (day,
+## clock_cycle) cuando el tick es Crazy. Sin este recuerdo, _on_bet_tick_opened construiría y emitiría
+## un CrazyBetContext distinto (re-sorteado) por cada partido, violando el contrato de "un único
+## CrazyBetContext por tick" (epic-e §3.4 / epic-b B.3).
+##
+## IMPORTANTE (D.6): antes de la Historia D.6 todos los partidos de un día avanzaban en lockstep, así
+## que BetTickContext.tick_index_in_day (índice de tick PROPIO del partido de available_markets[0]) era
+## por casualidad también un identificador válido del ciclo de reloj global -- coincidía para todos los
+## partidos vivos del mismo advance_tick(). D.6 introduce kickoff_offset_minutes por partido: dos
+## partidos vivos en el mismo advance_tick() ya NO comparten necesariamente current_tick_index (cada
+## uno lleva su propio reloj desde su propio kickoff). El dedupe se basa en
+## BetTickContext.clock_cycle (el ciclo de reloj GLOBAL, ver comentario en bet_tick_context.gd), NUNCA
+## en tick_index_in_day, para no reintroducir un bug del mismo tipo que el Bug 1.
 ## -1 = todavía no se disparó ningún Momento Crazy en la run activa.
 var _crazy_moment_triggered_day: int = -1
-var _crazy_moment_triggered_tick_index: int = -1
+var _crazy_moment_triggered_clock_cycle: int = -1
 
 
 func _ready() -> void:
@@ -40,7 +50,7 @@ func start_new_run() -> void:
 	current_tick_index = 0
 	_run_ended = false
 	_crazy_moment_triggered_day = -1
-	_crazy_moment_triggered_tick_index = -1
+	_crazy_moment_triggered_clock_cycle = -1
 
 	var phase: NarrativePhase.Phase = NarrativePhase.get_current_phase()
 	crazy_moment_schedule = CrazyMomentScheduler.build_schedule_for_run(phase, _rng)
@@ -74,7 +84,7 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 		return
 
 	current_day = context.day
-	current_tick_index = context.tick_index_in_day
+	current_tick_index = context.clock_cycle   # D.6: ciclo de reloj GLOBAL, no tick_index_in_day de un partido (ver comentario de _crazy_moment_triggered_clock_cycle)
 
 	# B.2: la comprobación de muerte de run ocurre al abrir el tick, antes de pedir ninguna apuesta.
 	if StakeResolver.is_run_dead(current_money):
@@ -87,16 +97,16 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 		return
 
 	# B.4: ¿el tick actual coincide con algún slot planificado de Momento Crazy? Se dispara como máximo
-	# una vez por (day, tick_index_in_day): advance_tick() emite bet_tick_opened una vez por cada
-	# partido vivo del día, todos con el mismo tick_index_in_day, así que sin este dedupe este bloque
-	# se ejecutaría N veces por tick (fix Bug 1, §7.1).
+	# una vez por (day, clock_cycle): advance_tick() emite bet_tick_opened una vez por cada partido
+	# vivo del día, todos con el mismo clock_cycle (D.6), así que sin este dedupe este bloque se
+	# ejecutaría N veces por tick (fix Bug 1, §7.1; reclave a clock_cycle en D.6 §9).
 	var already_triggered_this_tick: bool = (
 		_crazy_moment_triggered_day == int(current_day)
-		and _crazy_moment_triggered_tick_index == current_tick_index
+		and _crazy_moment_triggered_clock_cycle == current_tick_index
 	)
 	if not already_triggered_this_tick and CrazyMomentScheduler.is_crazy_moment_tick(crazy_moment_schedule, current_day, current_tick_index):
 		_crazy_moment_triggered_day = int(current_day)
-		_crazy_moment_triggered_tick_index = current_tick_index
+		_crazy_moment_triggered_clock_cycle = current_tick_index
 		var phase: NarrativePhase.Phase = NarrativePhase.get_current_phase()
 		var crazy_bet: CrazyBetContext = CrazyBetResolver.build_context(current_money, phase, context.available_markets, _rng)
 		EventBus.crazy_moment_triggered.emit(crazy_bet)

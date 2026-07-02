@@ -8,6 +8,13 @@ extends SceneTree
 ## uno de los mercados permitidos, el botón "Continuar" (BettingRoot._all_matches_satisfied_this_cycle)
 ## debe habilitarse sin quedar bloqueado (deadlock descrito en §4 de la spec).
 ##
+## Actualizado para D.6 (calendario de jornada con horarios escalonados): con kickoffs escalonados, no
+## cualquier partido del día está necesariamente LIVE en el ciclo de reloj en que dispara el Crazy --
+## el forzoso se confirma deliberadamente sobre un partido LIVE (BettingRoot._matches_with_tick_open_
+## this_cycle, el gate obligatorio, solo cuenta partidos LIVE desde D.6 §6), que es el escenario real
+## que el jugador puede completar. La invariante de D.6 §4.1 (siempre hay >=1 partido LIVE al arrancar
+## el día) garantiza que ese partido LIVE existe.
+##
 ## Ejecutar headless (requiere Godot instalado en el entorno que corra el test):
 ##   godot --headless --path . --script res://tests/integration/crazy_moment_single_trigger_test.gd
 
@@ -51,10 +58,12 @@ func _run_test() -> void:
 	# para no saltarse el camino real de arranque de la escena.
 	await EventBus.bet_tick_opened
 
-	# Dispara el tick_index=1 (el marcado como Crazy) de la forma real: un advance_tick() de
+	# Dispara el clock_cycle=1 (el marcado como Crazy) de la forma real: un advance_tick() de
 	# MatchSimulationService emite bet_tick_resolved + bet_tick_opened UNA VEZ POR CADA partido vivo del
-	# día, todos con el mismo tick_index_in_day -- exactamente el escenario que producía N disparos de
-	# crazy_moment_triggered antes del fix de RunState (§7.1).
+	# día, todos con el mismo clock_cycle (D.6) -- exactamente el escenario que producía N disparos de
+	# crazy_moment_triggered antes del fix de RunState (§7.1), y que D.6 podría haber reintroducido si
+	# el dedupe hubiera seguido basado en tick_index_in_day (que con kickoffs escalonados ya NO es común
+	# a todos los partidos vivos del mismo ciclo de reloj).
 	betting_root._match_simulation_service.advance_tick()
 
 	if _crazy_trigger_count != 1:
@@ -71,9 +80,18 @@ func _run_test() -> void:
 		_finish()
 		return
 
-	# Confirma el forzoso sobre el primer mercado permitido, en el primer partido, exactamente por el
-	# camino real (MarketWidget -> MatchPanel -> BettingRoot), no simulando el resultado a mano.
-	var target_match_id: StringName = betting_root._match_panels.keys()[0]
+	# Confirma el forzoso sobre el primer mercado permitido, en un partido LIVE (D.6: el gate obligatorio
+	# solo cuenta partidos LIVE -- ver comentario de cabecera), exactamente por el camino real
+	# (MarketWidget -> MatchPanel -> BettingRoot), no simulando el resultado a mano.
+	var target_match_id: StringName = &""
+	for match_id in betting_root._match_panels.keys():
+		if betting_root._match_simulation_service.get_match_status(match_id) == MatchSimulationService.MatchStatus.LIVE:
+			target_match_id = match_id
+			break
+	if target_match_id == &"":
+		_fail("ningún partido quedó LIVE en el ciclo de reloj del Crazy -- viola la invariante anti-bloqueo de D.6 §4.1")
+		_finish()
+		return
 	var target_panel: MatchPanel = betting_root._match_panels[target_match_id]
 	var target_market_id: StringName = active_crazy_bet.allowed_market_ids[0]
 	var target_widget: MarketWidget = target_panel._market_widgets_by_id.get(target_market_id, null)

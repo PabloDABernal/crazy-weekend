@@ -8,11 +8,24 @@ class_name MatchSimulationService extends Node
 ## por la UI de apuestas (Épica E), tras validar que el jugador cumplió su apuesta obligatoria del
 ## tick vigente (regla de B.2/B.3, no de esta épica).
 
+## D.6 -- estado derivado (no almacenado) de un partido en un momento dado del reloj de jornada. Ver
+## .ai-studio/specs/story-d6-calendario-horarios-escalonados.md sección 2.2.
+enum MatchStatus { PRE_MATCH, LIVE, FINISHED }
+
 var active_matches: Dictionary = {}   # match_id (StringName) -> MatchTickState
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var _current_day: BettingDay.Day = BettingDay.Day.FRIDAY
 var _current_matchday: MatchdayFixture = null
+
+## D.6 -- reloj de jornada en minutos, 0 al iniciar el día, +LeagueRules.MATCH_MINUTES_PER_TICK por
+## cada advance_tick(). Gobierna qué partidos ya arrancaron (PRE_MATCH -> LIVE).
+var _clock_minutes: int = 0
+
+## D.6 -- kickoff_offset_minutes de cada partido del día, copiado de MatchFixture al arrancar la
+## jornada (match_id (StringName) -> int), para no depender de _current_matchday.matches en cada
+## consulta de estado.
+var _kickoff_offsets_by_match: Dictionary = {}
 
 ## Threshold elegido una vez por partido para cards_ou/fouls_ou (sección 5.4): no cambia tick a tick.
 ## match_id (StringName) -> { "cards_ou": float, "fouls_ou": float }
@@ -38,6 +51,8 @@ func start_matchday(matchday: MatchdayFixture, day: BettingDay.Day) -> void:
 	active_matches = {}
 	_resolved_variable_thresholds = {}
 	_carded_players_by_match = {}
+	_clock_minutes = 0
+	_kickoff_offsets_by_match = {}
 
 	for match_fixture in matchday.matches:
 		var initial_state := MatchTickState.new()
@@ -46,6 +61,7 @@ func start_matchday(matchday: MatchdayFixture, day: BettingDay.Day) -> void:
 		initial_state.away_team_id = match_fixture.away_team_id
 		active_matches[match_fixture.match_id] = initial_state
 		_carded_players_by_match[match_fixture.match_id] = []
+		_kickoff_offsets_by_match[match_fixture.match_id] = match_fixture.kickoff_offset_minutes
 
 		_resolved_variable_thresholds[match_fixture.match_id] = _choose_variable_thresholds(
 			LeagueState.get_team(match_fixture.home_team_id),
@@ -54,11 +70,14 @@ func start_matchday(matchday: MatchdayFixture, day: BettingDay.Day) -> void:
 		)
 
 
-## Emite bet_tick_opened con el estado inicial (min 0, sin simular) para que el jugador pueda
-## apostar pre-partido antes del primer advance_tick(). No emite bet_tick_resolved porque no hay
-## tick previo que resolver.
+## Emite bet_tick_opened con el estado inicial (min 0, sin simular) de TODOS los partidos del día, para
+## que el jugador pueda apostar pre-partido antes de que arranquen (sección 5/6 de la spec D.6): los
+## partidos con kickoff_offset_minutes == 0 quedan LIVE desde ya (get_match_status lo deriva del reloj,
+## en 0 en este punto); el resto queda PRE_MATCH con esta misma oferta inicial hasta que su offset
+## llegue. No emite bet_tick_resolved porque no hay tick previo que resolver para ningún partido.
 func open_initial_tick() -> void:
 	var market_definitions: Array[MarketDef] = MarketCatalog.get_all_market_definitions()
+	var clock_cycle: int = _current_clock_cycle()
 
 	for match_id in active_matches.keys():
 		var state: MatchTickState = active_matches[match_id]
@@ -70,42 +89,96 @@ func open_initial_tick() -> void:
 		var context := BetTickContext.new()
 		context.day = _current_day
 		context.tick_index_in_day = 0
+		context.clock_cycle = clock_cycle
 		context.available_markets = available_markets
 
 		EventBus.bet_tick_opened.emit(context)
 
 
-## Avanza manualmente al siguiente tick de todos los partidos en curso de este día.
+## Avanza el reloj de jornada un tick (D.6: LeagueRules.MATCH_MINUTES_PER_TICK minutos) y resuelve,
+## para cada partido, el efecto de ese avance según su propio estado (sección 5 de la spec):
+## - FINISHED: se salta, sin emitir nada.
+## - PRE_MATCH que sigue PRE_MATCH tras el avance: se salta, sin tick ni emisión (mantiene su oferta
+##   pre-partido vigente, emitida por open_initial_tick() o por su propio kickoff más adelante).
+## - PRE_MATCH que cruza a LIVE con este avance (kickoff): emite su tick 0 YA EXISTENTE (el mismo
+##   estado inicial de start_matchday/open_initial_tick) como bet_tick_opened -- no resuelve un tick
+##   nuevo ni emite bet_tick_resolved, porque no hay ningún tick LIVE previo que cerrar.
+## - LIVE: resuelve un tick nuevo (MatchTickEngine.resolve_tick) y emite bet_tick_resolved seguido de
+##   bet_tick_opened, igual que en el modelo lockstep anterior a D.6.
 func advance_tick() -> void:
+	var clock_before: int = _clock_minutes
+	_clock_minutes += LeagueRules.MATCH_MINUTES_PER_TICK
+	var clock_cycle: int = _current_clock_cycle()
+
 	var market_definitions: Array[MarketDef] = MarketCatalog.get_all_market_definitions()
 
 	for match_id in active_matches.keys():
 		var previous_state: MatchTickState = active_matches[match_id]
 		if previous_state.current_tick_index >= LeagueRules.TICKS_PER_MATCH:
-			continue
+			continue   # FINISHED
+
+		var kickoff_offset: int = _kickoff_offsets_by_match.get(match_id, 0)
+		if _clock_minutes < kickoff_offset:
+			continue   # sigue PRE_MATCH: sin tick, mantiene su oferta pre-partido vigente
 
 		var home_team: TeamDef = LeagueState.get_team(previous_state.home_team_id)
 		var away_team: TeamDef = LeagueState.get_team(previous_state.away_team_id)
 
-		var new_state: MatchTickState = MatchTickEngine.resolve_tick(previous_state, home_team, away_team, _rng)
-		active_matches[match_id] = new_state
-		_record_carded_players(match_id, new_state)
+		var just_kicked_off: bool = clock_before < kickoff_offset
+		var new_state: MatchTickState
+
+		if just_kicked_off:
+			# Kickoff en este avance: se anuncia el mismo tick 0 ya creado en start_matchday, sin
+			# resolver un tick nuevo (todavía no hay 15 minutos de juego que simular para este partido).
+			new_state = previous_state
+		else:
+			new_state = MatchTickEngine.resolve_tick(previous_state, home_team, away_team, _rng)
+			active_matches[match_id] = new_state
+			_record_carded_players(match_id, new_state)
 
 		var available_markets: Array[MarketOffer] = _build_market_offers(market_definitions, new_state, home_team, away_team)
 
 		var context := BetTickContext.new()
 		context.day = _current_day
 		context.tick_index_in_day = new_state.current_tick_index
+		context.clock_cycle = clock_cycle
 		context.available_markets = available_markets
 
 		# Orden estricto (fix de integración Épica E): bet_tick_resolved ANTES de bet_tick_opened para
 		# este mismo match_id, para que la UI de apuestas resuelva/acredite el payout del tick recién
 		# cerrado antes de que RunState (conectado a bet_tick_opened) evalúe StakeResolver.is_run_dead().
-		EventBus.bet_tick_resolved.emit(match_id, new_state.current_tick_index)
+		# No se emite bet_tick_resolved en el kickoff (just_kicked_off): no hay tick LIVE previo a cerrar.
+		if not just_kicked_off:
+			EventBus.bet_tick_resolved.emit(match_id, new_state.current_tick_index)
 		EventBus.bet_tick_opened.emit(context)
 
 	if is_matchday_finished():
 		_finish_matchday()
+
+
+## D.6 -- estado derivado de un partido en el reloj actual de la jornada (sección 2.2 de la spec).
+func get_match_status(match_id: StringName) -> int:
+	var state: MatchTickState = active_matches.get(match_id, null)
+	if state == null:
+		return MatchStatus.PRE_MATCH
+	if state.current_tick_index >= LeagueRules.TICKS_PER_MATCH:
+		return MatchStatus.FINISHED
+	var kickoff_offset: int = _kickoff_offsets_by_match.get(match_id, 0)
+	if _clock_minutes < kickoff_offset:
+		return MatchStatus.PRE_MATCH
+	return MatchStatus.LIVE
+
+
+## D.6 -- reloj de jornada en minutos, para UI (TopBar.set_hour_text) y consultas externas.
+func get_clock_minutes() -> int:
+	return _clock_minutes
+
+
+## D.6 -- ciclo de reloj GLOBAL (0-based, +1 por cada advance_tick()), común a todos los BetTickContext
+## de una misma llamada a open_initial_tick()/advance_tick(). Ver comentario de BetTickContext.
+## clock_cycle: es la clave correcta de dedupe del Momento Crazy (RunState), no tick_index_in_day.
+func _current_clock_cycle() -> int:
+	return _clock_minutes / LeagueRules.MATCH_MINUTES_PER_TICK
 
 
 ## Acumula los player_id amonestados de este tick en _carded_players_by_match, porque
@@ -148,7 +221,10 @@ func get_tick_commentary_context(match_id: StringName) -> TickCommentaryContext:
 	return context
 
 
-## true si todos los partidos del día ya llegaron al minuto 90.
+## true si todos los partidos del día ya llegaron al minuto 90 (FINISHED). D.6: NO equivale a "todos
+## en el mismo tick_index" -- con kickoffs escalonados cada partido llega a FINISHED en un advance_tick
+## distinto, así que la condición real sigue siendo por partido (current_tick_index >=
+## LeagueRules.TICKS_PER_MATCH), nunca una comparación de tick_index compartido entre partidos.
 func is_matchday_finished() -> bool:
 	if active_matches.is_empty():
 		return false

@@ -3,12 +3,20 @@ class_name CrazyMomentScheduler extends RefCounted
 ## fase narrativa, más el sorteo del tick exacto dentro de la jornada elegida (piso que excluye el
 ## primer tick). Se invoca una vez al inicio de cada run (RunState.start_new_run()).
 ## Ver .ai-studio/specs/epic-b-economia-de-run.md sección B.4.
+##
+## D.6: `tick_index` (aquí y en ScheduledCrazyMoment) se compara siempre contra RunState.
+## current_tick_index, que desde D.6 se puebla con BetTickContext.clock_cycle (el ciclo de reloj
+## GLOBAL de la jornada), NO con el tick_index_in_day propio de un partido -- ver comentario de
+## RunState._crazy_moment_triggered_clock_cycle. El rango de sorteo (EconomyRules.
+## CRAZY_MOMENT_MIN_TICK_INDEX .. TICKS_PER_DAY-1) sigue pensado para el modelo lockstep pre-D.6;
+## Game Designer/Architect deberían revisarlo si la duración real de una jornada en ciclos de reloj
+## (que ahora puede superar TICKS_PER_DAY con kickoffs muy escalonados) diverge del rango sorteado.
 
 
-## Un slot planificado: qué día y qué tick de ese día disparará Momento Crazy.
+## Un slot planificado: qué día y qué ciclo de reloj GLOBAL de ese día disparará Momento Crazy.
 class ScheduledCrazyMoment extends RefCounted:
 	var day: BettingDay.Day
-	var tick_index: int
+	var tick_index: int   # D.6: ciclo de reloj global (BetTickContext.clock_cycle), no tick de un partido concreto
 
 	func _init(p_day: BettingDay.Day = BettingDay.Day.FRIDAY, p_tick_index: int = 0) -> void:
 		day = p_day
@@ -65,7 +73,9 @@ static func _pick_unique_days(allowed_days: Array, count: int, rng: RandomNumber
 	return chosen
 
 
-## Consultado en cada bet_tick_opened: ¿el tick actual coincide con algún slot planificado?
+## Consultado en cada bet_tick_opened: ¿el ciclo de reloj global actual coincide con algún slot
+## planificado? (D.6: `tick_index` recibido aquí es RunState.current_tick_index, poblado desde
+## BetTickContext.clock_cycle, no desde tick_index_in_day de un partido concreto).
 static func is_crazy_moment_tick(schedule: Array[ScheduledCrazyMoment], day: BettingDay.Day, tick_index: int) -> bool:
 	for slot in schedule:
 		if slot.day == day and slot.tick_index == tick_index:

@@ -54,14 +54,12 @@ func _ready() -> void:
 	EventBus.victory_category_unlocked.connect(_on_victory_category_unlocked)
 	_pending_bets_tracker.bet_resolved.connect(_on_pending_bet_resolved)
 
-	_start_day(RunState.current_day)
-
 	if not MetaProgress.has_completed_first_bet_tutorial():
 		_tutorial_overlay.visible = true
 	else:
 		_tutorial_overlay.visible = false
 
-	_start_landing_countdown()
+	_start_day_and_countdown(RunState.current_day)
 
 
 ## E.1 — cuenta regresiva puramente visual/atmosférica de "15 minutos antes del kickoff". No bloquea
@@ -90,11 +88,30 @@ func _on_landing_timer_tick() -> void:
 		_match_simulation_service.open_initial_tick()
 
 
+## D.6 (sección 7): la hora de UI se formatea a partir de LeagueRules.DAY_BASE_HOUR + el reloj de
+## jornada (MatchSimulationService.get_clock_minutes()), no es un dato de motor. Layout final fuera de
+## alcance de esta historia (trabajo de Épica E) -- aquí solo se fija el dato mostrado.
 func _update_hour_display() -> void:
 	if not _kickoff_started and _display_clock_minutes_before_kickoff > 0:
 		_top_bar.set_hour_text("📺 Arrancando jornada...")
 	else:
-		_top_bar.set_hour_text(_format_day_label(RunState.current_day))
+		_top_bar.set_hour_text(_format_day_and_clock_label(RunState.current_day))
+
+
+func _format_day_and_clock_label(day: BettingDay.Day) -> String:
+	var day_label: String = _format_day_label(day)
+	var base_hour: String = LeagueRules.DAY_BASE_HOUR.get(day, "")
+	var clock_minutes: int = _match_simulation_service.get_clock_minutes()
+
+	if base_hour == "" or not base_hour.contains(":"):
+		return day_label
+
+	var parts: PackedStringArray = base_hour.split(":")
+	var base_total_minutes: int = int(parts[0]) * 60 + int(parts[1])
+	var total_minutes: int = (base_total_minutes + clock_minutes) % (24 * 60)
+	var display_time: String = "%02d:%02d" % [total_minutes / 60, total_minutes % 60]
+
+	return "%s %s" % [day_label, display_time]
 
 
 func _format_day_label(day: BettingDay.Day) -> String:
@@ -109,19 +126,33 @@ func _format_day_label(day: BettingDay.Day) -> String:
 			return ""
 
 
+## Arranca el día indicado y, si quedó con algún partido, su countdown de aterrizaje; si el día quedó
+## sin ningún partido (D.6: jornada CONCENTRATED, que concentra todos los partidos en un único día),
+## lo salta automáticamente en vez de esperar una apuesta obligatoria que nunca podría llegar -- misma
+## invariante anti-bloqueo que motivó el Bug 1 (nunca dejar al jugador esperando algo imposible).
+func _start_day_and_countdown(day: BettingDay.Day) -> void:
+	_start_day(day)
+	if _match_panels.is_empty():
+		_on_matchday_finished(-1)
+	else:
+		_start_landing_countdown()
+
+
 ## Arranca la simulación del día indicado con el subconjunto de partidos de la jornada de liga
 ## correspondiente a ese día de la run. Instancia 1 MatchPanel por MatchFixture del día (todos
-## ocultos salvo el enfocado por defecto).
+## ocultos salvo el enfocado por defecto). Puede dejar el día sin partidos (D.6, jornada CONCENTRATED)
+## -- ver _start_day_and_countdown, que es quien decide qué hacer en ese caso.
 func _start_day(day: BettingDay.Day) -> void:
 	var matchday_fixture: MatchdayFixture = LeagueState.get_current_matchday_fixture()
 	if matchday_fixture == null:
 		return
 
-	var matches_for_day: Array[MatchFixture] = _split_matches_for_day(matchday_fixture.matches, day)
+	var matches_for_day: Array[MatchFixture] = _matches_for_day(matchday_fixture, day)
 
 	var subset_fixture := MatchdayFixture.new()
 	subset_fixture.matchday_index = matchday_fixture.matchday_index
 	subset_fixture.matches = matches_for_day
+	subset_fixture.schedule_kind = matchday_fixture.schedule_kind
 
 	_clear_match_panels()
 	_match_simulation_service.start_matchday(subset_fixture, day)
@@ -131,6 +162,24 @@ func _start_day(day: BettingDay.Day) -> void:
 
 	if not _match_panels.is_empty():
 		_set_focused_match(_match_panels.keys()[0])
+
+
+## D.6 (sección 4.2): el reparto por día pasa a depender de schedule_kind. STAGGERED sigue el reparto
+## en tercios de siempre (_split_matches_for_day); CONCENTRATED concentra todos los partidos en un
+## único día (_concentrated_matches_for_day).
+func _matches_for_day(matchday_fixture: MatchdayFixture, day: BettingDay.Day) -> Array[MatchFixture]:
+	if matchday_fixture.schedule_kind == MatchdayFixture.ScheduleKind.CONCENTRATED:
+		return _concentrated_matches_for_day(matchday_fixture.matches, day)
+	return _split_matches_for_day(matchday_fixture.matches, day)
+
+
+## Jornada especial CONCENTRATED ("Super Sunday", D.6 sección 4.2): todos los partidos caen en un único
+## día (domingo, el de mayor audiencia de la run). Viernes/sábado quedan sin partidos ese fin de semana
+## -- ver _start_day_and_countdown, que los salta automáticamente sin bloquear la run.
+func _concentrated_matches_for_day(all_matches: Array[MatchFixture], day: BettingDay.Day) -> Array[MatchFixture]:
+	if day == BettingDay.Day.SUNDAY:
+		return all_matches.duplicate()
+	return []
 
 
 ## Reparto de partidos de una jornada de liga (~10 partidos) entre los 3 días de la run (viernes,
@@ -144,7 +193,8 @@ func _start_day(day: BettingDay.Day) -> void:
 ## toda jornada de liga tiene siempre exactamente 10 partidos (20 equipos / 2), y con total=10 el
 ## reparto real es 4/4/2 -- ningún día queda vacío. No se modifica esta función porque el caso
 ## problemático no es alcanzable con los números reales de la liga; si en el futuro TEAM_COUNT dejara
-## de ser fijo (o impar), esta nota deja documentado que habría que revisar el reparto.
+## de ser fijo (o impar), esta nota deja documentado que habría que revisar el reparto. (Solo se aplica
+## a jornadas STAGGERED -- las CONCENTRATED usan _concentrated_matches_for_day, arriba.)
 func _split_matches_for_day(all_matches: Array[MatchFixture], day: BettingDay.Day) -> Array[MatchFixture]:
 	var total: int = all_matches.size()
 	var day_index: int = int(day)   # FRIDAY=0, SATURDAY=1, SUNDAY=2
@@ -230,6 +280,11 @@ func _on_bet_tick_resolved(match_id: StringName, _tick_index: int) -> void:
 ## entradas de un mismo BetTickContext comparten match_id). Solo puebla el panel con el nuevo contexto
 ## -- la resolución de apuestas pendientes de este partido ya ocurrió en _on_bet_tick_resolved, que
 ## MatchSimulationService garantiza que se emite antes que esta señal para el mismo match_id.
+##
+## D.6 (sección 6): _matches_with_tick_open_this_cycle (el gate de apuesta obligatoria) SOLO debe
+## incluir partidos LIVE este ciclo -- las ofertas pre-partido (PRE_MATCH) son opcionales, no cuentan
+## para el tick obligatorio. panel.on_tick_opened() se sigue llamando siempre, para todos los estados,
+## así que un partido PRE_MATCH igual muestra sus mercados/odds pre-partido normalmente.
 func _on_bet_tick_opened(context: BetTickContext) -> void:
 	if context.available_markets.is_empty():
 		return
@@ -239,7 +294,8 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 	if panel == null:
 		return
 
-	if not _matches_with_tick_open_this_cycle.has(match_id):
+	var status: int = _match_simulation_service.get_match_status(match_id)
+	if status == MatchSimulationService.MatchStatus.LIVE and not _matches_with_tick_open_this_cycle.has(match_id):
 		_matches_with_tick_open_this_cycle.append(match_id)
 
 	var match_state: MatchTickState = _match_simulation_service.get_match_tick_state(match_id)
@@ -307,8 +363,7 @@ func _on_matchday_finished(_matchday_index: int) -> void:
 func _advance_to_next_day(day: BettingDay.Day) -> void:
 	_matches_with_tick_open_this_cycle.clear()
 	_deactivate_crazy_bet()
-	_start_day(day)
-	_start_landing_countdown()
+	_start_day_and_countdown(day)
 
 
 ## Domingo terminado: victoria si dinero > 0, derrota (bancarrota) si llegó exactamente a 0 en la
