@@ -65,7 +65,149 @@ El fix ya está commiteado (código + tests automatizados), pero los tests no se
 
 Si alguno de estos falla, copiame qué viste paso a paso — probablemente hace falta otra vuelta de Programmer.
 
-## 6. Fuera de alcance de esta primera ronda de pruebas
+## 6. E.7 y E.8 — Cuota visible, ganancia potencial y boleto vivo (pruebas manuales)
+
+Los tests automatizados en `tests/betting/` (ejecutables con Godot) validan la aritmética y lógica de estado vivo; esta sección documenta casos de integración y UX que solo se pueden verificar en la máquina del Director dentro del juego.
+
+**Nota:** Los tests automatizados cubren:
+- **odds_math_test.gd**: aritmética de OddsMath (odds_from_probability, odds_range, potential_return, potential_net, consistencia con PayoutCalculator).
+- **market_widget_payout_preview_test.gd**: botones de opción muestran cuota, PayoutPreviewLabel se actualiza en tiempo real, muestra rango vs. valor único correctamente.
+- **live_bet_evaluator_test.gd**: estado vivo tri-estado (WINNING/LOSING/UNDECIDED), incluida la regla especial de 1x2 (nunca UNDECIDED), y consistencia con PendingBetsTracker._is_bet_won.
+- **resolution_feedback_overlay_test.gd**: overlay oculto por defecto, mouse_filter=IGNORE (lección del Bug 1), show_win/show_loss muestran importes, encola resoluciones múltiples.
+- **live_bet_ticket_test.gd**: setup() muestra stake/cuota/ganancia, refresh_live_state() actualiza estado y ticks hasta resolución.
+- **pending_bets_tracker_resolution_test.gd**: bet_resolved emite con won/payout correctos.
+
+**Casos manuales a probar en Godot:**
+
+### 6.1 Cuota visible antes de apostar (E.7)
+
+**Objetivo:** Verificar que cada opción de mercado muestre su cuota (multiplicador) de forma clara, y que la ganancia potencial calculada en la UI coincida con la que efectivamente se cobra al resolverse. Este fue el bug central que se corrigió durante el desarrollo (bug de divergencia de cuota en `PayoutCalculator`), así que es el caso más importante de validar en la práctica real del motor.
+
+**Setup:**
+- Llega a la pantalla de apuestas en cualquier jornada (viernes, sábado o domingo).
+- Selecciona un partido con al menos 2-3 mercados ofertados (ej. 1x2, over/under, btts).
+
+**Pasos:**
+
+1. **Leer cuota en cada botón de opción:**
+   - Cada opción (home, away, draw en 1x2; over, under en over/under) debe mostrar una **cuota numérica clara**, ej. `2.45–2.87` (rango si la probabilidad es un rango).
+   - Si la probabilidad es fija (rango colapsado), debe mostrar una sola cuota, ej. `1.50`.
+   - **Señal de fallo:** Si ves `%`, números de probabilidad en lugar de cuota, o cuota ausente → bug de E.7.
+
+2. **Ingresar un stake y verificar ganancia potencial:**
+   - Selecciona una opción (ej. "over" en 2.5 goles).
+   - Escribe un importe en el campo "Apuestas" (ej. 100$).
+   - Busca el label de "ganancia potencial" (debe decir algo como `"Apuestas $100 → devuelve $XXX"` o `"Apuestas $100 → devuelve $XXX–$YYY"` si es rango).
+   - **Anota el número de devolución mostrado** (p. ej. 287$ si cuota es 2.87 y stake es 100).
+   - **Señal de fallo:** Si falta el label de ganancia potencial, si muestra solo "neto" sin el total, o si el número no corresponde a cuota × stake → bug de E.7.
+
+3. **Confirma la apuesta y espera a que se resuelva:**
+   - Juega hasta que el partido termine y se resuelva la apuesta.
+   - Cuando se resuelva, observa el overlay de feedback de resolución (E.8, sección 6.4).
+   - **El número que aparece en el overlay como "total acreditado" debe coincidir exactamente con el que viste en el boleto antes de apostar** (dentro del rango si es rango).
+   - Ej. si el boleto decía "devuelve $287", el overlay debe decir "+$287" como número principal.
+   - **Señal de fallo:** Si el overlay muestra un número diferente (ej. "devuelve" dice 287 pero el feedback dice 312) → bug de divergencia de cuota; investigar qué cambió entre "confirmar apuesta" y "pagar".
+
+4. **Caso extremo — rango de cuota:**
+   - Intenta una opción con probabilidad en rango (ej. 35%–45% de home en 1x2).
+   - El botón debería mostrar `cuota_min–cuota_max` (ej. `2.22–2.86`).
+   - El label de ganancia potencial debería mostrar `"Apuestas $100 → devuelve $222–$286"` (rango).
+   - Al resolver, el payout acreditado debe estar dentro de ese rango (no fuera).
+   - **Señal de fallo:** Rango que no se muestra, o payout fuera del rango mostrado.
+
+### 6.2 Boleto vivo con estado en tiempo real (E.8)
+
+**Objetivo:** Mientras un partido está en curso, cada apuesta abierta debe mostrar su estado actual (ganando/perdiendo/indeciso) actualizado en cada tick, sin que el Director tenga que investigar o mirar detalles del partido. El estado debe cambiar automáticamente conforme el marcador avanza.
+
+**Setup:**
+- Coloca apuestas en al menos 2 tipos de mercados diferentes:
+  - **Un mercado 1x2** (home/away/draw): debe reflejar **siempre** el marcador en curso, nunca estar "indeciso".
+  - **Un mercado monótono** (over/under de goles, btts, first_scorer): puede estar "indeciso" si la condición aún no se ha cumplido.
+- Apunta el estado inicial visible en cada boleto (deberá actualizarse a medida que juegues).
+
+**Pasos:**
+
+1. **Mercado 1x2 — estado en curso:**
+   - Apostaste a "home" en 1x2. El partido empieza con home 1–0 arriba.
+   - Mira el panel de "Apuestas pendientes" (derecha de la pantalla) → debe mostrar el boleto con estado `"vas ganando esta"` (o equivalente).
+   - Avanza ticks: home sigue 1–0 → estado debe seguir siendo `"vas ganando esta"` (sin cambiar).
+   - El rival iguala: 1–1 → estado debe cambiar inmediatamente a `"aún indeciso"` o `"vas perdiendo esta"` (porque tu selección "home" ya no coincide con el resultado en curso).
+   - Home vuelve a adelantarse: 2–1 → estado vuelve a `"vas ganando esta"`.
+   - **Señal de fallo:** Si el estado no se actualiza en el próximo tick tras cambios en el marcador, o si aparece "indeciso" para 1x2 cuando hay un marcador claro.
+
+2. **Over/under o btts — estado indeciso permitido:**
+   - Apostaste a "over 2.5" (más de 2.5 goles totales).
+   - Partido en curso 0–0 en minuto 15 → estado debe ser `"aún indeciso"` (el over aún puede caer a ambos lados).
+   - Marcador sube a 2–1 (3 goles totales) → estado debe cambiar inmediatamente a `"vas ganando esta"` (3 > 2.5, irreversible).
+   - Si el partido terminara 1–0 (1 gol total) → estado sería `"vas perdiendo esta"` (nunca alcanzó 2.5).
+   - **Señal de fallo:** Over/under apareciendo como WINNING/LOSING cuando aún es posible que caiga al otro lado; o mostrando como UNDECIDED después de que la condición ya se haya cumplido irreversiblemente.
+
+3. **Cuánto falta para cierre (ticks_until_resolution):**
+   - Cada boleto debe mostrar algo como `"cierra en min 87"` o `"cierra este tick"`.
+   - A medida que avanzan ticks, el minuto de cierre debe acercarse (ej. "min 87" → "min 75" → "min 63", etc.).
+   - Un mercado como "first_scorer" debe mostrar `"cierra este tick"` apenas se marque el primer gol (no espera al minuto 90).
+   - **Señal de fallo:** Minuto de cierre que no avanza, o que salta de repente.
+
+### 6.3 Feedback de resolución enérgico (E.8)
+
+**Objetivo:** Al resolverse una apuesta (ganada o perdida), debe aparecer un overlay con feedback claro y enérgico (visual, no bloquea input). El número principal debe ser el **total acreditado** (exactamente el que viste en el boleto), con la ganancia neta como detalle secundario. La intensidad debe ser **consistente** independientemente de la fase narrativa.
+
+**Pasos:**
+
+1. **Victoria — números correctos y jerarquía:**
+   - Una apuesta de **100$ a cuota 2.87** gana → el overlay debe mostrar:
+     - **Número grande/principal:** `"+$287"` (el total acreditado, exactamente lo que el boleto mostraba como "devuelve").
+     - **Detalle secundario:** `"neto +$187"` o similar (ganancia neta = 287 - 100).
+   - El overlay debe estar **"arriba" de la pantalla de juego, visible pero no bloqueando los botones de avance** (lección del Bug 1).
+   - **Señal de fallo:** Si el número principal muestra `"+$187"` (neto) en lugar de `"+$287"` (total), o si el overlay bloquea input.
+
+2. **Derrota — claro y atribuible:**
+   - Una apuesta de **100$ a cuota 2.50** pierde → el overlay debe mostrar:
+     - **Número grande:** `"−$100"` o `"−$100"` (la pérdida, el stake hundido).
+     - Sin detalles secundarios (no hay ganancia neta, solo la pérdida).
+   - El overlay debe sentirse "serio" pero no deprimido (tono consistente con victoria, no más apagado).
+   - **Señal de fallo:** Si no hay feedback en caso de derrota, o si la intensidad/tono baja en fases narrativas avanzadas.
+
+3. **Resoluciones múltiples en un tick:**
+   - Si 2+ apuestas se resuelven en el mismo tick, no deben solapar los overlays (riesgo de que el Director no vea ambos o se confunda).
+   - Deben aparecer de forma secuencial: primero un overlay, espera brevemente, desaparece, aparece el siguiente.
+   - **Señal de fallo:** Overlays superpuestos o que desaparecen demasiado rápido.
+
+### 6.4 Consistencia numérica boleto vivo → resolución
+
+**Objetivo:** Confirmar que el número ancla mostrado en el boleto vivo antes de la resolución **es exactamente el mismo que el que aparece en el overlay de feedback al ganar**. Esto valida que no haya "sorpresas" entre lo que ves apostando y lo que ves cobrando.
+
+**Pasos:**
+
+1. **Anota el número del boleto:**
+   - Colocas una apuesta de 50$ a "home" en 1x2 con cuota mostrada 3.50 → boleto debe decir `"Apuestas $50 → devuelve $175"`.
+   - Anota "175" en un papel o mental.
+
+2. **Espera a que el partido termine y se resuelva:**
+   - Si home gana, la apuesta se resuelve en el minuto 90 (FINAL_TICK).
+   - El overlay de feedback debe mostrar `"+$175"` como número principal.
+   - **Si coincide:** OK. Si no coincide (ej. muestra 180 o 170) → **bug grave de divergencia de cuota**, reportar.
+
+3. **Repite con rango:**
+   - Apuestas a "away" en 1x2 con cuota 1.80–2.00 → boleto muestra `"Apuestas $100 → devuelve $180–$200"`.
+   - Si away gana, el feedback debe mostrar uno de esos dos números (depende exactamente qué cuota se usó internamente).
+   - Debe estar **dentro del rango mostrado**, no fuera.
+   - **Señal de fallo:** Feedback fuera del rango (ej. rango era 180–200, feedback muestra 210).
+
+---
+
+**Resumen de señales de fallo críticas:**
+- Cuota ausente o mal mostrada en botones de opción.
+- Ganancia potencial no se actualiza al cambiar stake.
+- Número del boleto no coincide con el del overlay de feedback.
+- Payout fuera del rango mostrado (si es rango).
+- Estado vivo (WINNING/LOSING/UNDECIDED) no se actualiza tras cambios en el marcador.
+- 1x2 apareciendo como UNDECIDED cuando hay un marcador claro.
+- Over/under bloqueado en WINNING después de que el evento ya ocurrió (debería seguir siendo WINNING, no cambiar).
+- Overlay de feedback bloqueando input o desapareciendo demasiado rápido.
+- Feedback con intensidad reducida en fases narrativas 3–4 (debería ser igual en todas las fases).
+
+## 7. Fuera de alcance de esta primera ronda de pruebas
 
 - Fases narrativas 3 y 4 del deterioro (requieren 13+ y 21+ runs jugadas — poco práctico en una sesión corta).
 - Contenido narrativo real: todo el texto de comentarios, Expediente e intro está en placeholders "pendiente de redacción" — no es un bug, falta escribirlo.
