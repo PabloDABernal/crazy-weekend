@@ -24,6 +24,8 @@ func ensure_tab(match_id: StringName, display_label: String) -> void:
 	var button := Button.new()
 	button.text = display_label
 	button.toggle_mode = true
+	button.custom_minimum_size = Vector2(0, 38)
+	button.add_theme_font_size_override("font_size", 12)
 	button.pressed.connect(_on_tab_pressed.bind(match_id))
 	_tabs_container.add_child(button)
 	_buttons_by_match_id[match_id] = button

@@ -205,6 +205,7 @@ offset_left = 1032.0
 offset_top = 6.0
 offset_right = 1274.0
 offset_bottom = 48.0
+theme_type_variation = &"ContinueButton"
 disabled = true
 text = "Continuar →"
 

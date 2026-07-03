@@ -8,23 +8,35 @@ script = ExtResource("1")
 
 [node name="MatchLabel" type="Label" parent="."]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.55, 0.68, 1)
+theme_override_font_sizes/font_size = 10
 text = ""
 
 [node name="MarketLabel" type="Label" parent="."]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.87, 0.92, 1.0, 1)
+theme_override_font_sizes/font_size = 12
 text = ""
 
 [node name="StakeLabel" type="Label" parent="."]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.85, 0.94, 1)
+theme_override_font_sizes/font_size = 11
 text = ""
 
 [node name="StatusBadge" type="Label" parent="."]
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = ""
 
 [node name="ResolutionLabel" type="Label" parent="."]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.65, 0.78, 1)
+theme_override_font_sizes/font_size = 10
 text = ""
 
-[node name="HSep" type="HSeparator" parent="."]
+[node name="HSep" type="ColorRect" parent="."]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.14, 0.2, 0.28, 1)
+mouse_filter = 2

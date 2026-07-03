@@ -46,14 +46,14 @@ func refresh_live_state(match_state: MatchTickState) -> void:
 	var status: LiveBetEvaluator.LiveStatus = LiveBetEvaluator.evaluate(_pending_bet.market_offer, match_state)
 	match status:
 		LiveBetEvaluator.LiveStatus.WINNING:
-			_status_badge.text = "vas ganando esta"
-			_status_badge.modulate = Color(0.2, 0.85, 0.2)
+			_status_badge.text = "✓ GANANDO"
+			_status_badge.add_theme_color_override("font_color", Color(0.067, 0.902, 0.392, 1))
 		LiveBetEvaluator.LiveStatus.LOSING:
-			_status_badge.text = "vas perdiendo esta"
-			_status_badge.modulate = Color(0.85, 0.2, 0.2)
+			_status_badge.text = "✗ PERDIENDO"
+			_status_badge.add_theme_color_override("font_color", Color(0.894, 0.271, 0.271, 1))
 		LiveBetEvaluator.LiveStatus.UNDECIDED:
-			_status_badge.text = "aún indeciso"
-			_status_badge.modulate = Color(0.7, 0.7, 0.7)
+			_status_badge.text = "· INDECISO"
+			_status_badge.add_theme_color_override("font_color", Color(0.65, 0.75, 0.88, 1))
 
 	var ticks_left: int = LiveBetEvaluator.ticks_until_resolution(_pending_bet.market_offer, match_state)
 	if ticks_left <= 0:

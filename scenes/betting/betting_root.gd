@@ -25,7 +25,9 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _resolution_feedback_overlay: ResolutionFeedbackOverlay = $ResolutionFeedbackOverlay
 @onready var _empty_day_overlay: EmptyDayOverlay = $EmptyDayOverlay
 
-var _score_labels: Dictionary = {}  # match_id (StringName) -> Label
+var _score_labels: Dictionary = {}       # match_id (StringName) -> Label
+var _form_labels: Dictionary = {}        # match_id (StringName) -> Label (forma local+visitante)
+var _prev_goals: Dictionary = {}         # match_id (StringName) -> int (total goles prev tick)
 var _live_bet_tickets: Array[LiveBetTicket] = []
 
 var _focused_match_id: StringName = &""
@@ -271,21 +273,38 @@ func _create_match_panel(match_fixture: MatchFixture) -> void:
 	var label: String = "%s vs %s" % [h, a]
 	_match_selector.ensure_tab(match_fixture.match_id, label)
 
+	var match_vbox := VBoxContainer.new()
+	_scoreboard_mini.add_child(match_vbox)
+
 	var score_label := Label.new()
-	score_label.text = "%s  0 — 0  %s  (pre)" % [h, a]
+	score_label.text = "%s  0 — 0  %s" % [h, a]
 	score_label.add_theme_font_size_override("font_size", 12)
 	score_label.add_theme_color_override("font_color", Color(0.780, 0.843, 0.910, 1.0))
-	_scoreboard_mini.add_child(score_label)
+	match_vbox.add_child(score_label)
 	_score_labels[match_fixture.match_id] = score_label
+	_prev_goals[match_fixture.match_id] = 0
+
+	var form_label := Label.new()
+	form_label.text = _build_form_text(match_fixture.home_team_id, match_fixture.away_team_id)
+	form_label.add_theme_font_size_override("font_size", 10)
+	form_label.add_theme_color_override("font_color", Color(0.45, 0.55, 0.68, 1.0))
+	match_vbox.add_child(form_label)
+	_form_labels[match_fixture.match_id] = form_label
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 4)
+	_scoreboard_mini.add_child(spacer)
 
 
 func _clear_match_panels() -> void:
 	for panel in _match_panels.values():
 		panel.queue_free()
 	_match_panels.clear()
-	for lbl in _score_labels.values():
-		lbl.queue_free()
+	for child in _scoreboard_mini.get_children():
+		child.queue_free()
 	_score_labels.clear()
+	_form_labels.clear()
+	_prev_goals.clear()
 	_match_selector.clear_tabs()
 	_focused_match_id = &""
 
@@ -533,8 +552,14 @@ func _refresh_score_label(match_id: StringName, state: MatchTickState) -> void:
 	var away: TeamDef = LeagueState.get_team(state.away_team_id)
 	var h: String = home.display_name if home != null else String(state.home_team_id)
 	var a: String = away.display_name if away != null else String(state.away_team_id)
-	var min_str: String = "pre" if state.current_minute == 0 else "min %d" % state.current_minute
+	var min_str: String = "min %d" % state.current_minute if state.current_minute > 0 else "pre"
 	lbl.text = "%s  %d — %d  %s  (%s)" % [h, state.home_goals, state.away_goals, a, min_str]
+
+	var total_goals: int = state.home_goals + state.away_goals
+	var prev_goals: int = _prev_goals.get(match_id, 0)
+	if total_goals > prev_goals:
+		_show_goal_notification(h if state.home_goals > state.away_goals else a, state.home_goals, state.away_goals)
+	_prev_goals[match_id] = total_goals
 
 	if state.home_goals > state.away_goals:
 		lbl.add_theme_color_override("font_color", Color(0.067, 0.902, 0.392, 1))
@@ -542,6 +567,24 @@ func _refresh_score_label(match_id: StringName, state: MatchTickState) -> void:
 		lbl.add_theme_color_override("font_color", Color(0.894, 0.271, 0.271, 1))
 	else:
 		lbl.add_theme_color_override("font_color", Color(0.780, 0.843, 0.910, 1.0))
+
+
+func _show_goal_notification(scorer_team: String, home_goals: int, away_goals: int) -> void:
+	var notif := Label.new()
+	notif.text = "⚽ GOOOL! %d — %d" % [home_goals, away_goals]
+	notif.add_theme_font_size_override("font_size", 22)
+	notif.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0, 1.0))
+	notif.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notif.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	notif.offset_top = 58.0
+	notif.offset_bottom = 90.0
+	notif.offset_left = -240.0
+	notif.offset_right = 240.0
+	add_child(notif)
+	var tween := create_tween()
+	tween.tween_interval(1.4)
+	tween.tween_property(notif, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(notif.queue_free)
 
 
 ## E.8 -- boleto vivo: un LiveBetTicket por PendingBet abierta (ya no un resumen plano de las últimas
@@ -556,7 +599,9 @@ func _refresh_pending_bets_panel() -> void:
 	var pending: Array[PendingBet] = _pending_bets_tracker.get_pending_bets()
 	if pending.is_empty():
 		var empty_lbl := Label.new()
-		empty_lbl.text = "Sin apuestas pendientes"
+		empty_lbl.text = "  Sin apuestas activas"
+		empty_lbl.add_theme_font_size_override("font_size", 11)
+		empty_lbl.add_theme_color_override("font_color", Color(0.35, 0.45, 0.58, 1.0))
 		_pending_bets_panel.add_child(empty_lbl)
 		return
 
@@ -564,7 +609,9 @@ func _refresh_pending_bets_panel() -> void:
 	for bet in pending:
 		total += bet.stake
 	var summary := Label.new()
-	summary.text = "%d apuesta%s · $%d en juego" % [pending.size(), "s" if pending.size() != 1 else "", total]
+	summary.text = "  %d boleto%s · $%d apostados" % [pending.size(), "s" if pending.size() != 1 else "", total]
+	summary.add_theme_font_size_override("font_size", 11)
+	summary.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78, 1.0))
 	_pending_bets_panel.add_child(summary)
 
 	for bet in pending:
@@ -608,6 +655,27 @@ func _on_pending_bet_resolved(pending_bet: PendingBet, won: bool, payout: int) -
 		_resolution_feedback_overlay.show_win(payout, net)
 	else:
 		_resolution_feedback_overlay.show_loss(pending_bet.stake)
+
+
+func _build_form_text(home_team_id: StringName, away_team_id: StringName) -> String:
+	var home_form: String = _team_form_string(home_team_id)
+	var away_form: String = _team_form_string(away_team_id)
+	if home_form == "—" and away_form == "—":
+		return ""
+	return "Forma: %s  vs  %s" % [home_form, away_form]
+
+
+func _team_form_string(team_id: StringName) -> String:
+	var standing: TeamStandingEntry = LeagueState.get_standing(team_id)
+	if standing == null or standing.last_5_results.is_empty():
+		return "—"
+	var result: String = ""
+	for r in standing.last_5_results:
+		match r:
+			3: result += "G "
+			1: result += "E "
+			_: result += "P "
+	return result.strip_edges()
 
 
 func _current_matchday_id() -> StringName:
