@@ -188,9 +188,62 @@ anchor_bottom = 1.0
 color = Color(0.043, 0.063, 0.094, 1)
 mouse_filter = 2
 
+[node name="StakeLabel" type="Label" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 16.0
+offset_right = 80.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(0.55, 0.65, 0.78, 1)
+theme_override_font_sizes/font_size = 12
+text = "Apuesta:"
+
+[node name="GlobalStakeInput" type="SpinBox" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 84.0
+offset_top = 10.0
+offset_right = 200.0
+offset_bottom = 44.0
+min_value = 1.0
+max_value = 1000000.0
+step = 1.0
+value = 50.0
+
+[node name="QuickBtn50" type="Button" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 208.0
+offset_top = 10.0
+offset_right = 262.0
+offset_bottom = 44.0
+text = "$50"
+
+[node name="QuickBtn100" type="Button" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 266.0
+offset_top = 10.0
+offset_right = 328.0
+offset_bottom = 44.0
+text = "$100"
+
+[node name="QuickBtn250" type="Button" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 332.0
+offset_top = 10.0
+offset_right = 394.0
+offset_bottom = 44.0
+text = "$250"
+
+[node name="QuickBtnMax" type="Button" parent="MainVBox/BottomBar"]
+layout_mode = 0
+offset_left = 398.0
+offset_top = 10.0
+offset_right = 452.0
+offset_bottom = 44.0
+text = "MÁX"
+
 [node name="GlobalStatusLabel" type="Label" parent="MainVBox/BottomBar"]
 layout_mode = 0
-offset_left = 16.0
+offset_left = 460.0
 offset_top = 14.0
 offset_right = 980.0
 offset_bottom = 42.0

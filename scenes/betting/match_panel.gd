@@ -119,6 +119,11 @@ func has_bet_this_tick() -> bool:
 	return _has_bet_this_tick
 
 
+func set_global_stake(amount: int) -> void:
+	for widget in _market_widgets_by_id.values():
+		widget.set_stake(amount)
+
+
 ## Invocado por BettingRoot cuando el Crazy Bet vigente ya fue resuelto por CUALQUIER MatchPanel (no
 ## necesariamente este) -- si este panel todavía no apostó, solo se le exige a partir de ahora el
 ## stake mínimo normal (ver sección 3.4 de la spec: el forzoso aplica una sola vez por tick global).

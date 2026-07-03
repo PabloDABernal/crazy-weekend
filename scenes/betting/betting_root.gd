@@ -17,8 +17,15 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _match_panel_container: Control = $MainVBox/ContentHBox/LeftPanel/MatchPanelContainer
 @onready var _scoreboard_mini: VBoxContainer = $MainVBox/ContentHBox/RightPanel/RightPanelContent/ScoreboardMini
 @onready var _pending_bets_panel: VBoxContainer = $MainVBox/ContentHBox/RightPanel/RightPanelContent/PendingBetsPanel
+@onready var _global_stake_input: SpinBox = $MainVBox/BottomBar/GlobalStakeInput
+@onready var _quick_50: Button = $MainVBox/BottomBar/QuickBtn50
+@onready var _quick_100: Button = $MainVBox/BottomBar/QuickBtn100
+@onready var _quick_250: Button = $MainVBox/BottomBar/QuickBtn250
+@onready var _quick_max: Button = $MainVBox/BottomBar/QuickBtnMax
 @onready var _global_status_label: Label = $MainVBox/BottomBar/GlobalStatusLabel
 @onready var _continue_button: Button = $MainVBox/BottomBar/ContinueButton
+
+var _global_stake: int = 50
 @onready var _crazy_moment_overlay: CrazyMomentOverlay = $CrazyMomentOverlay
 @onready var _tutorial_overlay: TutorialOverlay = $TutorialOverlay
 @onready var _run_end_screen: RunEndScreen = $RunEndScreen
@@ -47,6 +54,13 @@ func _ready() -> void:
 	_empty_day_overlay.skip_finished.connect(_on_empty_day_skip_finished)
 	_match_selector.match_focus_requested.connect(_on_match_selector_focus_requested)
 	_continue_button.pressed.connect(request_advance_tick)
+	_global_stake_input.value_changed.connect(_on_global_stake_changed)
+	_quick_50.pressed.connect(func(): _set_global_stake(50))
+	_quick_100.pressed.connect(func(): _set_global_stake(100))
+	_quick_250.pressed.connect(func(): _set_global_stake(250))
+	_quick_max.pressed.connect(func(): _set_global_stake(RunState.get_money()))
+	_global_stake_input.value = float(EconomyRules.MINIMUM_STAKE)
+	_global_stake = EconomyRules.MINIMUM_STAKE
 	_refresh_global_continue_state()
 
 	EventBus.bet_tick_resolved.connect(_on_bet_tick_resolved)
@@ -370,6 +384,7 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 	var away_team: TeamDef = LeagueState.get_team(match_state.away_team_id) if match_state != null else null
 
 	panel.on_tick_opened(context, match_state, home_team, away_team, commentary_context)
+	panel.set_global_stake(_global_stake)
 	_update_hour_display()
 	_refresh_global_continue_state()
 	# E.8 -- el tick que avanza cambia el estado vivo de las apuestas abiertas de este partido (y de
@@ -386,6 +401,8 @@ func _on_bet_tick_opened(context: BetTickContext) -> void:
 func _on_crazy_moment_triggered(crazy_bet: CrazyBetContext) -> void:
 	_activate_crazy_bet(crazy_bet)
 	_crazy_moment_overlay.show_crazy_moment(crazy_bet)
+	_global_stake_input.editable = false
+	_global_stake_input.value = float(crazy_bet.forced_stake_amount)
 	for panel in _match_panels.values():
 		panel.apply_crazy_moment_restriction(crazy_bet)
 
@@ -393,6 +410,8 @@ func _on_crazy_moment_triggered(crazy_bet: CrazyBetContext) -> void:
 func _on_crazy_moment_ended() -> void:
 	_deactivate_crazy_bet()
 	_crazy_moment_overlay.hide_crazy_moment()
+	_global_stake_input.editable = true
+	_global_stake_input.value = float(_global_stake)
 	for panel in _match_panels.values():
 		panel.clear_crazy_moment_restriction()
 
@@ -655,6 +674,23 @@ func _on_pending_bet_resolved(pending_bet: PendingBet, won: bool, payout: int) -
 		_resolution_feedback_overlay.show_win(payout, net)
 	else:
 		_resolution_feedback_overlay.show_loss(pending_bet.stake)
+
+
+func _on_global_stake_changed(value: float) -> void:
+	_global_stake = int(value)
+	_propagate_stake_to_widgets()
+
+
+func _set_global_stake(amount: int) -> void:
+	var clamped: int = clamp(amount, EconomyRules.MINIMUM_STAKE, RunState.get_money())
+	_global_stake = clamped
+	_global_stake_input.value = float(clamped)
+	_propagate_stake_to_widgets()
+
+
+func _propagate_stake_to_widgets() -> void:
+	for panel in _match_panels.values():
+		panel.set_global_stake(_global_stake)
 
 
 func _build_form_text(home_team_id: StringName, away_team_id: StringName) -> String:

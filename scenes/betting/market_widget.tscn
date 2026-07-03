@@ -4,37 +4,20 @@
 
 [node name="MarketWidget" type="VBoxContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 64)
 script = ExtResource("1")
 
 [node name="MarketTitleLabel" type="Label" parent="."]
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = ""
 
 [node name="OptionsContainer" type="HFlowContainer" parent="."]
 layout_mode = 2
 
-[node name="BetRow" type="HBoxContainer" parent="."]
+[node name="PayoutPreviewLabel" type="Label" parent="."]
 layout_mode = 2
-
-[node name="StakeInput" type="SpinBox" parent="BetRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.0
-max_value = 1000000.0
-step = 1.0
-
-[node name="ConfirmBetButton" type="Button" parent="BetRow"]
-layout_mode = 2
-disabled = true
-text = "Apostar"
-
-[node name="PayoutRow" type="HBoxContainer" parent="."]
-layout_mode = 2
-
-[node name="PayoutPreviewLabel" type="Label" parent="PayoutRow"]
-layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
 text = ""
 
 [node name="DisabledOverlay" type="ColorRect" parent="."]
@@ -54,4 +37,11 @@ mouse_filter = 1
 [node name="UnavailableReasonLabel" type="Label" parent="."]
 visible = false
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = ""
+
+[node name="MarketDivider" type="ColorRect" parent="."]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.12, 0.18, 0.26, 1)
+mouse_filter = 2
