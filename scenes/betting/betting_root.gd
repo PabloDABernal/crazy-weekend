@@ -15,8 +15,8 @@ const DISPLAY_MINUTES_BEFORE_KICKOFF: int = 3
 @onready var _top_bar: TopBar = $MainVBox/TopBar
 @onready var _match_selector: MatchSelector = $MainVBox/ContentHBox/LeftPanel/MatchSelector
 @onready var _match_panel_container: Control = $MainVBox/ContentHBox/LeftPanel/MatchPanelContainer
-@onready var _scoreboard_mini: VBoxContainer = $MainVBox/ContentHBox/RightPanel/ScoreboardMini
-@onready var _pending_bets_panel: VBoxContainer = $MainVBox/ContentHBox/RightPanel/PendingBetsPanel
+@onready var _scoreboard_mini: VBoxContainer = $MainVBox/ContentHBox/RightPanel/RightPanelContent/ScoreboardMini
+@onready var _pending_bets_panel: VBoxContainer = $MainVBox/ContentHBox/RightPanel/RightPanelContent/PendingBetsPanel
 @onready var _global_status_label: Label = $MainVBox/BottomBar/GlobalStatusLabel
 @onready var _continue_button: Button = $MainVBox/BottomBar/ContinueButton
 @onready var _crazy_moment_overlay: CrazyMomentOverlay = $CrazyMomentOverlay
@@ -272,7 +272,9 @@ func _create_match_panel(match_fixture: MatchFixture) -> void:
 	_match_selector.ensure_tab(match_fixture.match_id, label)
 
 	var score_label := Label.new()
-	score_label.text = "%s  0 - 0  %s" % [h, a]
+	score_label.text = "%s  0 — 0  %s  (pre)" % [h, a]
+	score_label.add_theme_font_size_override("font_size", 12)
+	score_label.add_theme_color_override("font_color", Color(0.780, 0.843, 0.910, 1.0))
 	_scoreboard_mini.add_child(score_label)
 	_score_labels[match_fixture.match_id] = score_label
 
@@ -531,7 +533,15 @@ func _refresh_score_label(match_id: StringName, state: MatchTickState) -> void:
 	var away: TeamDef = LeagueState.get_team(state.away_team_id)
 	var h: String = home.display_name if home != null else String(state.home_team_id)
 	var a: String = away.display_name if away != null else String(state.away_team_id)
-	lbl.text = "%s  %d-%d  %s  (min %d)" % [h, state.home_goals, state.away_goals, a, state.current_minute]
+	var min_str: String = "pre" if state.current_minute == 0 else "min %d" % state.current_minute
+	lbl.text = "%s  %d — %d  %s  (%s)" % [h, state.home_goals, state.away_goals, a, min_str]
+
+	if state.home_goals > state.away_goals:
+		lbl.add_theme_color_override("font_color", Color(0.067, 0.902, 0.392, 1))
+	elif state.away_goals > state.home_goals:
+		lbl.add_theme_color_override("font_color", Color(0.894, 0.271, 0.271, 1))
+	else:
+		lbl.add_theme_color_override("font_color", Color(0.780, 0.843, 0.910, 1.0))
 
 
 ## E.8 -- boleto vivo: un LiveBetTicket por PendingBet abierta (ya no un resumen plano de las últimas

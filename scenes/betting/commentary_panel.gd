@@ -14,4 +14,6 @@ func refresh(lines: Array[String]) -> void:
 		var label := Label.new()
 		label.text = line
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		label.add_theme_font_size_override("font_size", 12)
+		label.add_theme_color_override("font_color", Color(0.70, 0.80, 0.92, 1.0))
 		_commentary_lines.add_child(label)

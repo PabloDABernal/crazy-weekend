@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scenes/betting/betting_root.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/betting/match_simulation_service.tscn" id="2"]
@@ -10,13 +10,23 @@
 [ext_resource type="PackedScene" path="res://scenes/betting/run_end_screen.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://scenes/betting/resolution_feedback_overlay.tscn" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/betting/empty_day_overlay.tscn" id="10"]
+[ext_resource type="Theme" path="res://resources/ui/default_theme.tres" id="11"]
 
 [node name="BettingRoot" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+theme = ExtResource("11")
 script = ExtResource("1")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.055, 0.082, 0.114, 1)
+mouse_filter = 2
 
 [node name="MatchSimulationService" parent="." instance=ExtResource("2")]
 
@@ -31,15 +41,25 @@ anchor_bottom = 1.0
 
 [node name="TopBar" type="Control" parent="MainVBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 46)
+custom_minimum_size = Vector2(0, 56)
 script = ExtResource("4")
+
+[node name="TopBarBG" type="ColorRect" parent="MainVBox/TopBar"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.063, 0.094, 1)
+mouse_filter = 2
 
 [node name="BalanceDisplay" type="Label" parent="MainVBox/TopBar"]
 layout_mode = 0
-offset_left = 12.0
-offset_top = 10.0
-offset_right = 200.0
-offset_bottom = 40.0
+offset_left = 16.0
+offset_top = 8.0
+offset_right = 260.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(0.067, 0.902, 0.392, 1)
+theme_override_font_sizes/font_size = 26
 text = "$0"
 
 [node name="HourDisplay" type="Label" parent="MainVBox/TopBar"]
@@ -49,10 +69,12 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -120.0
-offset_top = -12.0
-offset_right = 120.0
-offset_bottom = 12.0
+offset_left = -180.0
+offset_top = -14.0
+offset_right = 180.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(0.55, 0.65, 0.78, 1)
+theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 text = ""
 
@@ -71,8 +93,15 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="HSep0" type="HSeparator" parent="MainVBox"]
-layout_mode = 2
+[node name="TopBarAccentLine" type="ColorRect" parent="MainVBox/TopBar"]
+layout_mode = 3
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -2.0
+color = Color(0.047, 0.529, 0.227, 0.7)
+mouse_filter = 2
 
 [node name="ContentHBox" type="HBoxContainer" parent="MainVBox"]
 layout_mode = 2
@@ -84,8 +113,16 @@ size_flags_horizontal = 3
 
 [node name="MatchSelector" type="Control" parent="MainVBox/ContentHBox/LeftPanel"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 42)
 script = ExtResource("5")
+
+[node name="TabsBG" type="ColorRect" parent="MainVBox/ContentHBox/LeftPanel/MatchSelector"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.047, 0.071, 0.102, 1)
+mouse_filter = 2
 
 [node name="TabsContainer" type="HBoxContainer" parent="MainVBox/ContentHBox/LeftPanel/MatchSelector"]
 layout_mode = 3
@@ -101,45 +138,73 @@ clip_contents = true
 [node name="VSep" type="VSeparator" parent="MainVBox/ContentHBox"]
 layout_mode = 2
 
-[node name="RightPanel" type="VBoxContainer" parent="MainVBox/ContentHBox"]
+[node name="RightPanel" type="Panel" parent="MainVBox/ContentHBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(320, 0)
+custom_minimum_size = Vector2(300, 0)
 
-[node name="RightTitle" type="Label" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="RightPanelContent" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="RightTitle" type="Label" parent="MainVBox/ContentHBox/RightPanel/RightPanelContent"]
 layout_mode = 2
-text = "MARCADORES"
-horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.45, 0.55, 0.68, 1)
+theme_override_font_sizes/font_size = 10
+text = "  MARCADORES"
 
-[node name="ScoreboardMini" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel"]
-layout_mode = 2
-
-[node name="HSep1" type="HSeparator" parent="MainVBox/ContentHBox/RightPanel"]
-layout_mode = 2
-
-[node name="BetsTitle" type="Label" parent="MainVBox/ContentHBox/RightPanel"]
-layout_mode = 2
-text = "APUESTAS ACTIVAS"
-horizontal_alignment = 1
-
-[node name="PendingBetsPanel" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel"]
+[node name="ScoreboardMini" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel/RightPanelContent"]
 layout_mode = 2
 
-[node name="HSep2" type="HSeparator" parent="MainVBox"]
+[node name="SepLine1" type="ColorRect" parent="MainVBox/ContentHBox/RightPanel/RightPanelContent"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.18, 0.25, 0.34, 1)
+
+[node name="BetsTitle" type="Label" parent="MainVBox/ContentHBox/RightPanel/RightPanelContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.55, 0.68, 1)
+theme_override_font_sizes/font_size = 10
+text = "  APUESTAS ACTIVAS"
+
+[node name="PendingBetsPanel" type="VBoxContainer" parent="MainVBox/ContentHBox/RightPanel/RightPanelContent"]
 layout_mode = 2
 
-[node name="BottomBar" type="HBoxContainer" parent="MainVBox"]
+[node name="BottomDivider" type="ColorRect" parent="MainVBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.18, 0.25, 0.34, 1)
+
+[node name="BottomBar" type="Control" parent="MainVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 54)
+
+[node name="BottomBarBG" type="ColorRect" parent="MainVBox/BottomBar"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.063, 0.094, 1)
+mouse_filter = 2
 
 [node name="GlobalStatusLabel" type="Label" parent="MainVBox/BottomBar"]
-layout_mode = 2
-size_flags_horizontal = 3
+layout_mode = 0
+offset_left = 16.0
+offset_top = 14.0
+offset_right = 980.0
+offset_bottom = 42.0
+theme_override_colors/font_color = Color(0.55, 0.65, 0.78, 1)
+theme_override_font_sizes/font_size = 13
 vertical_alignment = 1
 text = ""
 
 [node name="ContinueButton" type="Button" parent="MainVBox/BottomBar"]
-layout_mode = 2
-custom_minimum_size = Vector2(220, 0)
+layout_mode = 0
+offset_left = 1032.0
+offset_top = 6.0
+offset_right = 1274.0
+offset_bottom = 48.0
 disabled = true
 text = "Continuar →"
 

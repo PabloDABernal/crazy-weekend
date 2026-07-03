@@ -21,85 +21,136 @@ anchor_bottom = 1.0
 
 [node name="ScoreboardPanel" type="Control" parent="VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 56)
+custom_minimum_size = Vector2(0, 88)
 script = ExtResource("2")
+
+[node name="ScoreboardBG" type="ColorRect" parent="VBox/ScoreboardPanel"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.047, 0.071, 0.102, 1)
+mouse_filter = 2
 
 [node name="HomeTeamLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
-offset_right = 200.0
-offset_bottom = 24.0
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 300.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(0.87, 0.92, 1.0, 1)
+theme_override_font_sizes/font_size = 16
 text = ""
 
 [node name="AwayTeamLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
-offset_left = 400.0
-offset_right = 600.0
-offset_bottom = 24.0
+offset_left = 640.0
+offset_top = 10.0
+offset_right = 950.0
+offset_bottom = 38.0
+theme_override_colors/font_color = Color(0.87, 0.92, 1.0, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 2
 text = ""
 
 [node name="ScoreLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
-offset_left = 250.0
-offset_right = 350.0
-offset_bottom = 24.0
-text = ""
+offset_left = 340.0
+offset_top = 6.0
+offset_right = 620.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 1)
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+text = "0 — 0"
 
 [node name="MinuteLabel" type="Label" parent="VBox/ScoreboardPanel"]
 layout_mode = 0
-offset_top = 28.0
-offset_right = 200.0
-offset_bottom = 52.0
-text = ""
+offset_left = 400.0
+offset_top = 62.0
+offset_right = 560.0
+offset_bottom = 84.0
+theme_override_colors/font_color = Color(0.55, 0.65, 0.78, 1)
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+text = "Pre-partido"
+
+[node name="ScoreboardDivider" type="ColorRect" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.18, 0.25, 0.34, 1)
 
 [node name="StatsPanel" type="Control" parent="VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 100)
+custom_minimum_size = Vector2(0, 72)
 script = ExtResource("3")
 
 [node name="PossessionBar" type="ProgressBar" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_right = 590.0
-offset_bottom = 24.0
+offset_left = 8.0
+offset_right = 940.0
+offset_bottom = 22.0
 max_value = 100.0
 value = 50.0
 
 [node name="ShotsOnTargetLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_top = 28.0
-offset_right = 590.0
-offset_bottom = 48.0
+offset_top = 26.0
+offset_right = 460.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(0.65, 0.75, 0.88, 1)
+theme_override_font_sizes/font_size = 12
 text = ""
 
 [node name="CardsLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_top = 52.0
-offset_right = 590.0
-offset_bottom = 72.0
+offset_left = 470.0
+offset_top = 26.0
+offset_right = 940.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(0.65, 0.75, 0.88, 1)
+theme_override_font_sizes/font_size = 12
 text = ""
 
 [node name="CornersLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_top = 76.0
-offset_right = 590.0
-offset_bottom = 96.0
+offset_top = 50.0
+offset_right = 460.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.65, 0.75, 0.88, 1)
+theme_override_font_sizes/font_size = 12
 text = ""
 
 [node name="FoulsLabel" type="Label" parent="VBox/StatsPanel"]
 layout_mode = 0
-offset_top = 100.0
-offset_right = 590.0
-offset_bottom = 120.0
+offset_left = 470.0
+offset_top = 50.0
+offset_right = 940.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(0.65, 0.75, 0.88, 1)
+theme_override_font_sizes/font_size = 12
 text = ""
+
+[node name="StatsDivider" type="ColorRect" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.18, 0.25, 0.34, 1)
 
 [node name="CommentaryPanel" type="Control" parent="VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 80)
+custom_minimum_size = Vector2(0, 64)
 script = ExtResource("4")
 
 [node name="CommentaryLines" type="VBoxContainer" parent="VBox/CommentaryPanel"]
 layout_mode = 0
-offset_right = 590.0
-offset_bottom = 80.0
+offset_left = 8.0
+offset_right = 940.0
+offset_bottom = 64.0
+
+[node name="CommentaryDivider" type="ColorRect" parent="VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.18, 0.25, 0.34, 1)
 
 [node name="MarketsScroll" type="ScrollContainer" parent="VBox"]
 layout_mode = 2
@@ -136,4 +187,6 @@ layout_mode = 2
 [node name="TickStatusLabel" type="Label" parent="VBox"]
 layout_mode = 2
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.45, 0.55, 0.68, 1)
+theme_override_font_sizes/font_size = 12
 text = "⬇ Apuesta algo en este partido"

@@ -34,3 +34,11 @@ VictoryTracker="*res://autoloads/victory_tracker.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+
+[gui]
+
+theme/custom="res://resources/ui/default_theme.tres"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.055, 0.082, 0.114, 1)
